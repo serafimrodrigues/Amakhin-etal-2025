@@ -3,7 +3,7 @@
 % Sept '24
 %---------------------------
 
-% vcl=load('../vcrun.mat');ccl=load('../ccrun.mat');
+% vcl=load('../../mat_files/vcruntype2.mat');ccl=load('../../mat_files/ccruntype2.mat');
 x=vcl.t;
 x=x/1000;
 wsize=[200,300,400];
