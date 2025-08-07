@@ -1,6 +1,6 @@
 %--------------------------------------------------------------------
 % "Observing hidden neuronal states in experiments" by Amakhin et al.
-%  m-file to reproduce Fig.3b of the manuscript
+%  m-file to reproduce Fig.3(b)
 %--------------------------------------------------------------------
 
 %%% accuracy of the discretisation of the ODE
@@ -44,5 +44,4 @@ set(gca,'XTick', -10:10:40);
 set(gca,'YTick',-100:35:40);
 ylabel('$V_\mathrm{h}\approx V,\;V_\mathrm{cc}$ (mV)','Interpreter','latex');
 xlabel('$I_\mathrm{vc},\;I_\mathrm{h}$\,(pA)','Interpreter','latex');
-exportgraphics(figure(1),'WB_VC_CC.pdf','ContentType','vector','BackgroundColor','none');
 
