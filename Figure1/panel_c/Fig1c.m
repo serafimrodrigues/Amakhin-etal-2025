@@ -1,6 +1,6 @@
 %--------------------------------------------------------------------
 % "Observing hidden neuronal states in experiments" by Amakhin et al.
-%  m-file to reproduce Fig.1(c) of the manuscript
+%  m-file to reproduce Fig.1(c)
 %--------------------------------------------------------------------
 
 %%% Plot bifurcation diagrams for all cells in one 2d graph
