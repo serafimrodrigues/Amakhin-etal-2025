@@ -1,7 +1,6 @@
 %--------------------------------------------------------------------
 % "Observing hidden neuronal states in experiments" by Amakhin et al.
-%  m-file to reproduce Fig.1(b) of the manuscript  
-%  and Fig.S5(a2) of the supplemental material 
+%  m-file to reproduce Fig.1(b), Fig.5(a1-a2) and Fig.SI3(a)
 %--------------------------------------------------------------------
 
 
@@ -130,6 +129,6 @@ set(gca,'YTick',-80:40:40);
 ylabel('$V_\mathrm{h}\approx V,\;V_\mathrm{cc}$ (mV)','Interpreter','latex');
 xlabel('$I_\mathrm{vc},\;I_\mathrm{h}$\,(pA)','Interpreter','latex');
 
-%%% LAY-OUT for panel (a2) of Figure S5
+%%% LAY-OUT for panel (a2) of Figure 5
 % axis([190 210 -40 40]);
 % set(gca,'XTick',190:10:210);
