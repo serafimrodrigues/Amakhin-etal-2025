@@ -1,9 +1,10 @@
-%---------------------------
-% VC and CC in a type-2 case
-% Sept '24
-%---------------------------
+%--------------------------------------------------------------------
+% "Observing hidden neuronal states in experiments" by Amakhin et al.
+%  m-file to reproduce Fig.2(b)
+%--------------------------------------------------------------------
 
-% vcl=load('../../mat_files/vcruntype2.mat');ccl=load('../../mat_files/ccruntype2.mat');
+% vcl=load('../../mat_files/vcruntype2.mat');
+% ccl=load('../../mat_files/ccruntype2.mat');
 x=vcl.t;
 x=x/1000;
 wsize=[200,300,400];
@@ -53,6 +54,5 @@ set(gca,'XTick',-100:125:400);
 set(gca,'YTick',-80:27.5:30);
 % 
 %%%
-% exportgraphics(figure(1),'type2.pdf','ContentType','vector','BackgroundColor','none');   
 
 
