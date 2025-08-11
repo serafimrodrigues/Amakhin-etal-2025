@@ -52,15 +52,18 @@ irvc=struct(isnames{:},'V',size(isnames,2)+1);
 c1=c51(:,3:4);
 c5=c51(:,1:2);
 ist=struct('t',1,'V',2,'dVdt',3);
-rg5=4557:53422;
-rg1=3761:53424;
-[cstep_all,rg_high]=deal({c5,c1},{rg5,rg1});
+cstep_all={c5,c1};
 clear chigh
 for k=nruns:-1:1
-    rx{k}=setdiff(1:size(cstep_all{k},1),rg_high{k});
+    rg_high{k}=find(cstep_all{k}(:,ist.t)>100&cstep_all{k}(:,ist.t)<1600);
+    rx{k,1}=find(cstep_all{k}(:,ist.t)<=100);
+    rx{k,2}=find(cstep_all{k}(:,ist.t)>=1600);
+    setdiff(1:size(cstep_all{k},1),rg_high{k});
     chigh{k}=cstep_all{k}(rg_high{k},:);
     % form the approx derivative V'
-    chigh{k}(:,ist.dVdt)=[diff(chigh{k}(:,ist.V))./diff(chigh{k}(:,ist.t));NaN];
+    %chVs=smoothdata(chigh{k}(:,ist.V),'gaussian',5);
+    chVs=chigh{k}(:,ist.V);
+    chigh{k}(:,ist.dVdt)=[diff(chVs)./diff(chigh{k}(:,ist.t));NaN];
     osc_rg{k}=[min(chigh{k}(ceil(end/2):end,2)),max(chigh{k}(ceil(end/2):end,2))];
     ind2{k}=ceil(length(chigh{k})/3):length(chigh{k});
     ind1{k}=1:ceil(length(chigh{k})/3);
@@ -90,9 +93,9 @@ cunst=[1,0.2,0.2];
 cneg=cunst/2;
 [chopf,shopf,cfold,sfold]=deal([1,1,1],'s',[0,1,0],'s');
 bg=cm*1/3+2/3;
-ini_cl={'Color',bg,'MarkerSize',4};
-tr_cl={'Color',cm};
-osc_cl={'Color',0*[1,1,1]};
+ini_cl={'-','Color',bg,'linewidth',2};
+tr_cl={'Color',cm,'linewidth',1};
+osc_cl={'Color',0*[1,1,1],'linewidth',1};
 ttick=1000*(0:2);
 [vccdtick,vccd_bd]=deal(-80:70:60,[-80,70]);
 [vccxtick,vccytick]=deal(50*(-1:1),100*[-1,0,1,3]);
@@ -104,6 +107,7 @@ pa=@(tk,s)tk(1)+diff(tk([1,end]))*s;
 pa1=@(tk)pa(tk,0.01);
 pe=@(tk,s)tk(end)-diff(tk([1,end]))*s;
 pe1=@(tk)pe(tk,0.01);
+plabels=char(reshape('a'+(0:5),2,3)');
 labpostv=[pa1(ttick),pe1(vccd_bd)];
 labposvvp=[pa1(vccxtick),pe1(vccytick)];
 labposbif=[pa1(xbifbd),pe1(ybifbd)];
@@ -118,16 +122,20 @@ zshift=@(obj,val)set(obj,'ZData',val+0*obj.XData);
 for k=1:nruns
     %%% panel (a/b1): plot the time series
     ax(1,k)=nexttile(k);
-    plot(ax(1,k),chigh{k}(ind1{k},ist.t),chigh{k}(ind1{k},ist.V),tr_cl{:},'linewidth',1);
+    pl_tr=plot(ax(1,k),chigh{k}(ind1{k},ist.t),chigh{k}(ind1{k},ist.V),tr_cl{:},...
+        'DisplayName','$0.1$--$0.6$\,s');
     hold(ax(1,k),'on');
-    plot(ax(1,k),chigh{k}(ind2{k},ist.t),chigh{k}(ind2{k},ist.V),osc_cl{:},'linewidth',1);
-    plot(ax(1,k),cstep_all{k}(rx{k},ist.t),cstep_all{k}(rx{k},ist.V),'.',ini_cl{:});
+    pl_osc=plot(ax(1,k),chigh{k}(ind2{k},ist.t),chigh{k}(ind2{k},ist.V),osc_cl{:},...
+        'DisplayName','$0.6$--$1.6$\,s');
+    pl_ini=plot(ax(1,k),cstep_all{k}(rx{k,1},ist.t),cstep_all{k}(rx{k,1},ist.V),...
+        ini_cl{:},'DisplayName','$I_\mathrm{h}$ off');
+    plot(ax(1,k),cstep_all{k}(rx{k,2},ist.t),cstep_all{k}(rx{k,2},ist.V),ini_cl{:});
     set(ax(1,k),'XTick',ttick,'YTick',vccdtick,txt{:},...
         'xlim',ttick([1,end]),'ylim',vccd_bd);
     xlabel(ax(1,k),'$t$ (ms)',ltx{:});%,'Position',[1.5e3,pa(vccdtick,-0.02),0],...
     %'HorizontalAlignment','center','VerticalAlignment','top');
     yticklab(k,ax(1,:),'$V_{\mathrm{cc}}$ (mV)');
-    text(ax(1,k),labpostv(1),labpostv(2),['(',lab{k},'1)',ihtxt],'VerticalAlignment','top',ltx{:});
+    text(ax(1,k),labpostv(1),labpostv(2),['(',plabels(1,k),')',ihtxt],'VerticalAlignment','top',ltx{:});
     text(ax(1,k),txtpostv(1),txtpostv(2),cell_nr{k},'VerticalAlignment','top','HorizontalAlignment','right',ltx{:});
     %%%  plot (V,V')
     ax(2,k)=nexttile(ncols+k);
@@ -135,11 +143,11 @@ for k=1:nruns
     hold(ax(2,k),'on');
     plot(ax(2,k),chigh{k}(ind2{k},ist.V),chigh{k}(ind2{k},ist.dVdt),'-',osc_cl{:},'LineWidth',1);
     set(ax(2,k),'XTick',vccxtick,'YTick',vccytick,txt{:},'xlim',vccxtick([1,end]),'ylim',vccytick([1,end]));
-    yline(ax(2,k),0,'b--');
-    xline(ax(2,k),0,'b--');
+    yline(ax(2,k),0,'k--');
+    xline(ax(2,k),0,'k--');
     xlabel(ax(2,k),'$V_{\mathrm{cc}}$ (mV)','interpreter','latex');
     yticklab(k,ax(2,:),'$V^{\prime}_{\mathrm{cc}}$ (mV/ms)');
-    text(ax(2,k),labposvvp(1),labposvvp(2),['(',lab{k},'2)',ihtxt],'VerticalAlignment','top',ltx{:});
+    text(ax(2,k),labposvvp(1),labposvvp(2),['(',plabels(2,k),')',ihtxt],'VerticalAlignment','top',ltx{:});
     text(ax(2,k),txtposvvp(1),txtposvvp(2),cell_nr{k},'VerticalAlignment','top','HorizontalAlignment','right',ltx{:});
     hold(ax(2,k),'on');
     %%% repeat bifurcation diagram (VC and CC protocols)
@@ -147,24 +155,25 @@ for k=1:nruns
     pcc=plot(ax(3,k),ccruns{k}(:,ircc.I),ccruns{k}(:,ircc.V),ccrcol{:},'DisplayName','CC');
     hold(ax(3,k),'on');
     xline(ax(3,k),zoomc+zoomwh*[-1,1],'k-');
-    pvc0=plot(ax(3,k),vcruns{k}(:,irvc.I0),vcruns{k}(:,irvc.V),'Color',bg,'DisplayName','VC (raw)');
+    pvc0=plot(ax(3,k),vcruns{k}(:,irvc.I0),vcruns{k}(:,irvc.V),'Color',bg,'DisplayName','VC (unfiltered)');
     pvc1=plot(ax(3,k),vcruns{k}(:,irvc.I1),vcruns{k}(:,irvc.V),'Color',bg/2,'linewidth',2,'DisplayName','VC (smoothed)');
     plot(ax(3,k),zoomc*[1,1],osc_rg{k},'k+:','LineWidth',1)
-    text(ax(3,k),labposbif(1),labposbif(2),['(',lab{k},'3)'],'VerticalAlignment','top',ltx{:});
+    text(ax(3,k),labposbif(1),labposbif(2),['(',plabels(3,k),')'],'VerticalAlignment','top',ltx{:});
     tcell=text(ax(3,k),txtposbif(1),txtposbif(2),cell_nr{k},'VerticalAlignment','top','HorizontalAlignment','right',ltx{:});
     xlabel(ax(3,k),'$I_{\mathrm{vc}}$, $I_\mathrm{h}$ (pA)','interpreter','latex');
     yticklab(k,ax(3,:),'$V_\mathrm{h}\approx V$, $V_\mathrm{cc}$ (mV)');
     set(ax(3,k),'XLim',xbifbd,'YLim',ybifbd,'XTick',xbiftick(1:end-1),'YTick',ybiftick,txt{:});
     if k==1
-        axp=ax(3,k).Position;
-        lg=legend(ax(3,k),[pcc,pvc0,pvc1],'FontSize',10);
-        lg.Position([1,2])=[axp(1)+axp(3)*0.97-lg.Position(3),axp(2)+axp(4)*0.9];
+        ax3p=ax(3,1).Position;
+        lg3=legend(ax(3,1),[pcc,pvc0,pvc1],'FontSize',10);
+        lg3.Position([1,2])=[ax3p(1)+ax3p(3)*0.97-lg3.Position(3),ax3p(2)+ax3p(4)*0.9];
         tcell.Position(2)=pe(ybifbd,0.1);
     end
 end
 %% determine maxima of voltage spikes and insert markers for half-decay time
-lprop={'r-','linewidth',1};
-lprop2={'-','Color',[1,0.5,0.5],'linewidth',2.5};
+hvo={'HandleVisibility','off'};
+lprop={'r-','linewidth',1,hvo{:}};
+lprop2={'-','Color',[1,0.5,0.5],'linewidth',2.5,hvo{:}};
 itau=2;
 for k=nruns:-1:1
     [imx{k},ymx{k}]=get_max(chigh{k}(:,ist.V));
@@ -193,9 +202,9 @@ for k=1:nruns
 end
 %% add zoom-in's 
 for k=nruns:-1:1
-    axp=ax(3,k).Position;
+    ax3p=ax(3,k).Position;
     ax(4,k)=axes('Parent',figure(1),'Box','on',...
-        'Position',[axp(1)+axp(3)*0.59,axp(2)-axp(4)*0.04,axp(3)*0.42,axp(4)*0.4]);
+        'Position',[ax3p(1)+ax3p(3)*0.59,ax3p(2)-ax3p(4)*0.04,ax3p(3)*0.42,ax3p(4)*0.4]);
     selcc=ccruns{k}(:,ircc.I)>zoomc-zoomwh&ccruns{k}(:,ircc.I)<zoomc+zoomwh;
     plot(ax(4,k),ccruns{k}(selcc,ircc.I),ccruns{k}(selcc,ircc.V),ccrcol{:},'linewidth',1.5);
     hold(ax(4,k),'on');
@@ -206,9 +215,12 @@ for k=nruns:-1:1
     set(ax(4,k),'XTick',zoomc+zoomwh*(-1:1),'YTick',40*(-1:1),txt{:},...
         'ylim',ybifzoomtick([1,end]),'linewidth',1,'FontSize',10,'XColor',cm,'YColor',cm)
 end
+%% add legends
+ax1p=ax(1,1).Position;
+lg1=legend(ax(1,1),[pl_tr,pl_osc,pl_ini],ltx{:},'FontSize',13,'Location','South','NumColumns',2);
 %%
 folder=[pwd(),'/../../PLoS-amakhin/PLoS revision/'];
-exportgraphics(fig,[folder,'Figure5.pdf']);
+exportgraphics(fig,[folder,'Figure5.pdf'],'ContentType','vector');
 %%
 function yticklab(k,ax,txt)
 if k==1

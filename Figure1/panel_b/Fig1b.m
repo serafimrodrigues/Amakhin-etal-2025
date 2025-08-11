@@ -4,11 +4,12 @@
 %--------------------------------------------------------------------
 
 
-%%% First unzip the data file
+%% First unzip the data file
 %%% Then load CC for cell #5
-% c5=load('cell5.txt');
-
-%%% Plot CC after smoothing
+clear 
+c5=load('cell5.txt');
+%% % Plot CC after smoothing
+figure(1);clf;
 wsize=(1500);
 for k=1:length(wsize)
 smoothc5=smoothdata(c5(1:1200000,3),'movmean',wsize(k));
@@ -16,7 +17,7 @@ end
 plot(smoothc5,c5(1:1200000,2),'color',[1 0.6 0.4]);
 hold on;
 
-%%% Plot VC for cell #5
+%% % Plot VC for cell #5
 s=load('../../mat_files/vcruns.mat','vcruns','ip','xnames');
 [vcruns,ip,xnames]=deal(s.vcruns,s.ip,s.xnames);
 s=load('../../mat_files/ccruns.mat','ccruns');
