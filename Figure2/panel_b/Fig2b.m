@@ -3,8 +3,8 @@
 %  m-file to reproduce Fig.2(b)
 %--------------------------------------------------------------------
 
-% vcl=load('../../mat_files/vcruntype2.mat');
-% ccl=load('../../mat_files/ccruntype2.mat');
+vcl=load('../../mat_files/vcruntype2.mat');
+ccl=load('../../mat_files/ccruntype2.mat');
 x=vcl.t;
 x=x/1000;
 wsize=[200,300,400];
