@@ -106,6 +106,7 @@ lg=legend(ax(2),[pcc,pvraw,pvstab,pvhu,pvtop,pvund,pfold,phopf],'Location','layo
 lg.Layout.Tile='east';
 %set(lg,'Position',[ax(2).Position(1)+ax(2).Position(3),lg.Position(2:4)]);
 %%
+fig.Position(3:4)=[982,325]; % fix size of figure for repeatable plotting
 folder=[pwd(),'/../../PLoS-amakhin/PLoS revision/'];
 exportgraphics(fig,[folder,'Figure2.pdf'],'ContentType','vector');
 %%
