@@ -121,8 +121,10 @@ ax.FontWeight='bold';
 ax.FontName='Courier';
 ax.LineWidth=1.5;
 ax.PlotBoxAspectRatio=[1,1,1];
-yl=ylabel('$V_\mathrm{h}$ (mV)','Interpreter','latex');
-xl=xlabel('$I_\mathrm{vc}$\,(pA)','Interpreter','latex');
+txt={'Fontsize',16};
+ltx=[{'Interpreter','LaTeX'},txt];
+yl=ylabel('$V_\mathrm{h}$ (mV)',ltx{:});
+xl=xlabel('$I_\mathrm{vc}$\,(pA)',ltx{:});
 lg=legend(ax,[vn,vu,vp,vf,vh,vsn],{...
     '$$\frac{\mathrm{d}I_\mathrm{vc}^{\phantom{I}}}{\mathrm{d}V_\mathrm{h}}\!<\!0\mbox{\ (unst.)}$$',...
     '$I_\mathrm{vc}(V_\mathrm{h})$\hspace*{1.2ex} (unst.)',...
@@ -130,6 +132,13 @@ lg=legend(ax,[vn,vu,vp,vf,vh,vsn],{...
     '$I_\mathrm{vc}(V_\mathrm{h})$ (unf.)',...
     '``Hopf" bif.',...
     '``fold" bif.'...
-    },'Location','southeast','Interpreter','latex','NumColumns',2);
-lg.Position([1,2])=[0.45,0.11];
+    },'Location','southeast',ltx{:},'NumColumns',2);
+lg.Position([1,2])=[0.4,0.11];
 lg.FontSize=12;
+ybd=get(gca,'YLim');
+text(xbd(1)+diff(xbd)*0.01,ybd(2)-diff(ybd)*0.01,'(c)',...
+    'VerticalAlignment','top','HorizontalAlignment','left',ltx{:},'Fontsize',18);
+%%
+fig.Position(3:4)=[750,350]; % fix size of figure for repeatable plotting
+%folder=[pwd(),'/../../../PLoS-amakhin/PLoS revision/'];
+%exportgraphics(fig,[folder,'Figure1c.pdf'],'ContentType','vector');
