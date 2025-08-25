@@ -1,6 +1,6 @@
 %--------------------------------------------------------------------
 % "Observing hidden neuronal states in experiments" by Amakhin et al.
-%  m-file to reproduce Fig.1(b), Fig.5(a1-a2) and Fig.SI3(a)
+%  m-file to reproduce Fig.1(b)
 %--------------------------------------------------------------------
 
 
@@ -35,7 +35,7 @@ pcc=plot(ccrun.Is,ccrun.V,'color',[1 0.6 0.4],'DisplayName','$V(I_\mathrm{h})$')
 hold on;
 %cc_spike_rg=i_cc_hopf(1):i_cc_hopf(2);
 %plot(ccrun.Is(cc_spike_rg),ccrun.Vs(cc_spike_rg),'color',[1 0.4 0.2]);
-plot(ccrun.Is,ccrun.Vs,'color',[1 0.4 0.2]);
+plot(ccrun.Is,ccrun.Vs,'color',[1 0.5 0.3]);
 %% order cells
 ind_hopf=i_vc_hopf;
 ind_fold=find(diff(sign(diff(vcrun.Is))));

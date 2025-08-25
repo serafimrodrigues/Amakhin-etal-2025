@@ -24,6 +24,7 @@ for i=nruns:-1:1
         Is{i,k}=smoothdata(vr{i}(:,ip.I),'movmedian',wsize(k));
     end
 end
+%%
 runlens=arrayfun(@(i)size(vr{i},1),1:nruns);
 %%% order cells according to "type-II"-ness
 idiff=@(i)[-diff(Is{i,2}).*(diff(Is{i,2})<0).*diff(vr{i}(:,ip.V));0];
@@ -58,7 +59,7 @@ unst=[min(ind_hopf(1,:),ind_fold(1,:));...
     min(max(ind_hopf(2,:),ind_fold(2,:)),runlens)];
 
 %%% Plot
-figure(2);clf;set(gcf,'color','white');ax=gca;
+fig=figure(2);clf;set(gcf,'color','white');ax=gca;
 hold(ax,'on');
 clr=lines();
 cm=clr(1,:);
@@ -105,6 +106,7 @@ vp=plot(ax,NaN,NaN,'o','MarkerEdgeColor',cm,'MarkerFaceColor',cm,'MarkerSize',6)
 vf=plot(ax,NaN,NaN,'-','Color',bg,'MarkerFaceColor',bg,'LineWidth',2);
 vh=plot(ax,NaN,NaN,shopf,'Color','k','MarkerFaceColor',chopf,'LineWidth',1);
 vsn=plot(ax,NaN,NaN,sfold,'Color','k','MarkerFaceColor',cfold,'LineWidth',1);
+ve=plot(ax,NaN,NaN,'o','Color','w','MarkerFaceColor','w','LineWidth',1);
 hold(ax,'off');
 grid(ax,'on');
 xlim(ax,xbd);
@@ -120,25 +122,29 @@ ax.FontSize=16;
 ax.FontWeight='bold';
 ax.FontName='Courier';
 ax.LineWidth=1.5;
-ax.PlotBoxAspectRatio=[1,1,1];
+ax.PlotBoxAspectRatio=[0.6,1,1];
 txt={'Fontsize',16};
 ltx=[{'Interpreter','LaTeX'},txt];
 yl=ylabel('$V_\mathrm{h}$ (mV)',ltx{:});
 xl=xlabel('$I_\mathrm{vc}$\,(pA)',ltx{:});
-lg=legend(ax,[vn,vu,vp,vf,vh,vsn],{...
-    '$$\frac{\mathrm{d}I_\mathrm{vc}^{\phantom{I}}}{\mathrm{d}V_\mathrm{h}}\!<\!0\mbox{\ (unst.)}$$',...
-    '$I_\mathrm{vc}(V_\mathrm{h})$\hspace*{1.2ex} (unst.)',...
-    '$I_\mathrm{vc}(V_\mathrm{h})$\hspace*{1.2ex} (stab.)',...
-    '$I_\mathrm{vc}(V_\mathrm{h})$ (unf.)',...
-    '``Hopf" bif.',...
-    '``fold" bif.'...
-    },'Location','southeast',ltx{:},'NumColumns',2);
-lg.Position([1,2])=[0.4,0.11];
-lg.FontSize=12;
+% lg=legend(ax,[vn,ve,vu,ve,vp,ve,vf,ve,vh,vsn],{...
+%     sprintf('$$\\frac{\\mathrm{d}I_\\mathrm{vc}^{\\phantom{I}}}{\\mathrm{d}V_\\mathrm{h}}\\!<\\!0$$\nunstable'),...
+%     '',...
+%     sprintf('$I_\\mathrm{vc}(V_\\mathrm{h})$\npossibly\nunstable'),...
+%     '',...
+%     sprintf('$I_\\mathrm{vc}(V_\\mathrm{h})$\nstable'),...
+%     '',...
+%     sprintf('$I_\\mathrm{vc}(V_\\mathrm{h})$\nunfiltered'),...
+%     '',...
+%     'Hopf bif.',...
+%     'fold bif.'...
+%      },'Location','eastoutside',ltx{:});%,'NumColumns',2);
+%lg.Position([1,2])=[0.36,0.185];
+%lg.FontSize=12;
 ybd=get(gca,'YLim');
 text(xbd(1)+diff(xbd)*0.01,ybd(2)-diff(ybd)*0.01,'(c)',...
     'VerticalAlignment','top','HorizontalAlignment','left',ltx{:},'Fontsize',18);
 %%
-fig.Position(3:4)=[750,350]; % fix size of figure for repeatable plotting
-%folder=[pwd(),'/../../../PLoS-amakhin/PLoS revision/'];
-%exportgraphics(fig,[folder,'Figure1c.pdf'],'ContentType','vector');
+fig.Position(3:4)=[400,600]; % fix size of figure for repeatable plotting
+folder=[pwd(),'/../../../PLoS-amakhin/PLoS revision/'];
+exportgraphics(fig,[folder,'Figure1c.pdf'],'ContentType','vector');

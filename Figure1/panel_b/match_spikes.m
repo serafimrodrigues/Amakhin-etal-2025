@@ -1,6 +1,6 @@
 function [i_cc_hopf, i_vc_hopf,i_vc_unst,vs_cc]=match_spikes(cc,vc,wmedsize,thresholds)
 vdt=median(diff(vc.t));
-vs_cc=smoothdata(cc.V,'movmedian',ceil(wmedsize/vdt));
+vs_cc=smoothdata(cc.V,'movmedian',wmedsize,'SamplePoints',cc.t);
 l_cc_spike=abs(cc.V-vs_cc)>thresholds.spike;
 encl_i_cc_spike=find(diff(l_cc_spike)==1);
 i_cc_isi=NaN(length(l_cc_spike),3);
