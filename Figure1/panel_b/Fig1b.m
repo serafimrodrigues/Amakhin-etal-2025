@@ -27,15 +27,17 @@ vcrun=struct('I',vcar(:,ip.I),'V',vcar(:,ip.V),'t',vcar(:,ip.t));
 wsize=1500;
 thresholds=struct('spike',25,'isi',100e-3,'si',0.5);
 [i_cc_hopf,i_vc_hopf,i_vc_unst,ccrun.Vs]=match_spikes(ccrun,vcrun,wsize*mean(diff(vcrun.t)),thresholds);
-%% % Plot CC after smoothing
 wsize=1500;
 ccrun.Is=smoothdata(ccrun.I,'movmean',wsize);
+[weqsize,eqthresh]=deal(0.01,0.05);
+cceq=match_cc_stst(ccrun,weqsize,eqthresh);
+%% % Plot CC after smoothing
 fig=figure(1);clf;
 pcc=plot(ccrun.Is,ccrun.V,'color',[1 0.6 0.4],'DisplayName','$V(I_\mathrm{h})$');
 hold on;
 %cc_spike_rg=i_cc_hopf(1):i_cc_hopf(2);
 %plot(ccrun.Is(cc_spike_rg),ccrun.Vs(cc_spike_rg),'color',[1 0.4 0.2]);
-plot(ccrun.Is,ccrun.Vs,'color',[1 0.5 0.3]);
+plot(cceq.Is,cceq.V,'color',[1 0.5 0.3],'LineWidth',1.5);
 %% order cells
 ind_hopf=i_vc_hopf;
 ind_fold=find(diff(sign(diff(vcrun.Is))));

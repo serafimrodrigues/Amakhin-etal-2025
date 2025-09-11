@@ -1,0 +1,453 @@
+% Activate the following line by filling in the right side. If for example the name of the root file is Main.tex, write
+% "...root = Main.tex" if the chapter file is in the same directory, and "...root = ../Main.tex" if the chapter is in a subdirectory.
+ 
+%!TEX root =  ATLAS-Tutorial.tex
+
+\section{Introduction}
+A \textsc{coco}-compatible paradigm for ``parameter continuation'' is described in \emph{Recipes for Continuation}\footnote{Dankowicz, H.~\& Schilder, F., \emph{Recipes for Continuation}, Society for Industrial and Applied Mathematics, 2013.}, specifically the parts on ``Atlas Algorithms'' and ``Event Handling''.
+
+Additionally, the March 2020 release includes the production-ready \mcode{'atlas_kd'} atlas algorithm for multidimensional solution manifolds for adaptive continuation problems (with varying embedding dimension and variable interpretation)\footnote{Dankowicz, H., Wang, Y., Schilder, F.~\& Henderson, M.E., ``Multidimensional Manifold Continuation for Adaptive Boundary-Value Problems,'' \emph{J.~Computational and Nonlinear Dynamics} \textbf{15(5)}, art.~no.~051002, 2020.}. This is described in detail in this tutorial and exemplified using demos in the \mcode{coco/covering/examples} folder in the \textsc{coco} release.
+
+\section{Principles of continuation}
+\label{chap: fsm}
+
+The \textsc{coco} platform supports the construction of continuous families of approximate solutions to operator equations in inner-product spaces. Such approximate solutions lie in finite-dimensional restrictions of the operator domain and satisfy constraints that ensure consistency and convergence toward some exact solution in a suitable limit. No limit process is necessary in \emph{algebraic} problems, defined on finite-dimensional vector spaces.
+
+The successive growth of the family of solutions is known as \emph{continuation}. Continuation proceeds in stages of \emph{expansion} and \emph{consolidation}. During expansion, new solutions are constructed from, and in the vicinity of, existing solutions. During consolidation, new solutions are integrated with existing solutions, thereby establishing opportunities for further expansion that avoid treading over familiar ground. 
+
+In infinite-dimensional problems, consecutive stages of expansion may be formulated on restrictions of different finite dimension, as well as with different interpretations of the problem variables and different numbers of problem constraints. Such variations may be necessary in order to ensure a desired accuracy of approximation in all parts of the operator domain. In this case, we say that the problem construction is \emph{adaptive}. A typical example is the use of a varying mesh for the discretization of a trajectory continuation problem. For adaptive problems, \textsc{coco} requires that the difference between the number of problem variables and number of problem constraints remains constant throughout continuation.
+
+The process of continuation is seeded with an \emph{initial solution guess} and a single auxiliary \emph{projection condition} that, nominally, identifies a locally unique solution. The latter is found through an iterative search using a \emph{corrector}, e.g., Newton's method. In the simplest case, the projection condition is linear in the deviation of the unknowns from the initial solution guess.
+
+In \textsc{coco}, each stage of expansion is similarly seeded with a \emph{predictor} and a one-parameter family of projection conditions that identify, pointwise one-to-one, a locally unique and continuous curve of solutions that includes the existing solution used to construct the predictor. A single stage of expansion may produce multiple new solutions along such a curve. For example, solutions may be located that correspond to particular values of monitor functions that vary continuously along the curve.
+
+A stage of expansion is \emph{properly resolved} if the new solutions located along the corresponding curve are representative of all solutions on the curve segment between the existing solution and the furthermost new solution in either direction. In this case, consolidation should ensure that no further attempts are made to locate new solutions on this curve segment.
+
+Each run of the \mcode{coco} entry-point function is associated with an \emph{atlas algorithm} that implements specific solutions to the tasks of expansion and consolidation. Atlas algorithms may differ in the formulation of projection conditions, in the construction of a predictor, in the deployment of a corrector, in the definition of what it means for a stage of expansion to be properly resolved, and in the actions taken when this is not the case. Some atlas algorithms support adaptive problem constructions, others don't. Some atlas algorithms can handle multi-dimensional manifolds of solutions, others are restricted to the one-dimensional case. Some may be able to detect special points associated with local properties of the family of solutions like fold points and branch points, others may not. Some atlas algorithms are designed for particular classes of problems, others are general-purpose and therefore inevitably less efficient for some particular problems.
+
+The naming of atlas algorithms follows the convention that an identifying string is appended to the string \mcode{'atlas_'}. To use an atlas algorithm named \mcode{'atlas_alg'} in a run of the \mcode{coco} entry-point function applied to the continuation problem structure \mcode{prob}, use the syntax
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_set(prob, 'cont', 'atlas', 'alg');
+\end{lstlisting}
+before a subsequent call to \mcode{coco}. In the absence of such an assignment, \mcode{coco} uses the default atlas algorithm \mcode{'atlas_1d'} for one-dimensional solution manifolds and \mcode{'atlas_kd'} for higher-dimensional solution manifolds. To set options for a selected atlas algorithm, use the syntax
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_set(prob, 'cont', ...
+\end{lstlisting}
+where the ellipses denote pairs of settings and values specific to the algorithm. All atlas algorithms support options defining the frequency of screen outputs (\mcode{'NPR'} with default value $10$) and the frequency of storing solutions to disk (\mcode{'NSV'} with default value equal to the value of \mcode{'NPR'}). Additional options (\mcode{'corrector'} and \mcode{'linsolve'} with default values \mcode{'nwtn'} and \mcode{'splu'}) allow for identifying the nonlinear and linear solvers used by the corrector. For a list of supported settings and their default values for an atlas algorithm named \mcode{'atlas_alg'}, see the output of the \mcode{atlas_alg_settings} utility, when available.
+ 
+\section{Default atlas algorithms}
+The \textsc{coco} default atlas algorithms are designed to support general problem constructions, including composite continuation problems with adaptive problem structure. In the absence of any assumed problem form or meaning of the problem variables, these default atlas algorithms are ignorant of the properties of the operator domain and the associated inner product and (induced) geometry. Nevertheless, as explained in the case of \mcode{'atlas_kd'} below, nontrivial geometric analysis is possible by clever use of monitor functions during problem construction.
+
+\subsection{One-dimensional manifolds: \mcode{'atlas_1d'}}
+
+The \mcode{'atlas_1d'} atlas algorithm encodes an \emph{expanding boundary algorithm} for solution manifolds of dimension one. The algorithm is able to continue in both directions along the solution manifold from an initial point, and can also start on the boundary of a computational domain as long as the solution manifold intersects the boundary transversally at the initial point. The algorithm is able to detect fold points in a selected active continuation parameter, as well as generic branch points associated with a singular problem Jacobian. Except for special points, the algorithm constructs only one new solution in each stage of expansion.
+
+In the \mcode{'atlas_1d'} atlas algorithm, the scalar-valued projection condition that accompanies an initial solution guess is linear and homogeneous in the deviation from the initial solution guess. Typically, provided that the initial solution guess is close to a regular solution (where the problem Jacobian is full rank), the coefficient vector equals the unit vector along the first active continuation parameter axis in the direction of increasing values of the continuation parameter, unless this vector is close to perpendicular to the solution manifold at the nearby solution. In the latter case, the coefficient vector equals a unit length null vector of the problem Jacobian at the initial solution guess which approximates a unit length tangent vector to the solution manifold at the nearby solution. Continuation proceeds first in the direction opposite to the coefficient vector. 
+
+The optional setting \mcode{'branch'} determines whether and how data associated with the \mcode{'t0'} flag in any call to \mcode{coco_add_func} during problem construction is used to construct the projection condition coefficient vector. The default value of \mcode{'reset'} implies that such information is ignored in favor of the typical handling described above. This option can (and should only) be used near a regular solution point, even if an approximate tangent vector is known, e.g., from a previous run of the atlas algorithm. Notably, in this case, a corrector is applied to the initial solution guess and the convergence of the corrector to the solution manifold is included in the screen output.
+
+In contrast, either of the values \mcode{'switch'} or \mcode{'no switch'} result in the initial solution guess being accepted without correction and the coefficient vector being constructed using data associated with the \mcode{'t0'} flag in calls to \mcode{coco_add_func} during problem construction. In typical usage, the initial solution guess is a known solution, whether regular or singular, and the data associated with the \mcode{'t0'} flag describes an approximate tangent vector along some solution branch through this point computed in a previous run of the atlas algorithm. The \mcode{'no switch'} value instructs the atlas algorithm to restart continuation along this solution branch. In contrast, in the case that the known solution is a generic branch point, the \mcode{'switch'} value instructs the atlas algorithm to initiate continuation along a secondary branch transversal to the original solution branch. The optional settings \mcode{'Valpha'} and \mcode{'NullItMX'} govern the details of the associated construction of the projection condition coefficient vector.
+
+In each stage of expansion, the \mcode{'atlas_1d'} algorithm relies on i) a scalar-valued pseudo-arclength projection condition defined in terms of a tangent vector to the solution manifold at an existing solution and ii) a step size parameter. The algorithm supports adaptive step size adjustments along the solution manifold in order to achieve properly resolved stages of expansion with a reasonably small set of individual solutions. The step size associated with a particular stage of expansion is described locally in terms of the distance between an existing solution and the predictor constructed along a tangent line to the solution manifold in terms of some vector norm (optional setting \mcode{'norm'} with default value $2$). The algorithm does not support global measurements of solution similarity and, consequently, is unable to avoid redundant coverage of closed solution manifolds.
+
+The \mcode{'atlas_1d'} atlas algorithm supports adaptive problem constructions, including changes to the numbers and interpretations of problem variables and problem constraints. Such adaptive updates are applied before the construction of a predictor in a stage of expansion. Indeed, after each such adaptive update, the corrector is first applied with zero step size in order to construct a corrected solution on the solution manifold and a local tangent vector in the new problem variable domain. The predictor and projection condition are constructed from this corrected solution and tangent vector. 
+
+By default, a nonzero step size is associated with a Euclidean distance in the problem variable domain and, consequently, lacks invariant meaning during analysis of a continuation problem with adaptive problem construction. For a given step size, this choice may result in significantly smaller variations in any continuation parameters following a significant increase in the number of problem variables. In a worst-case scenario, such variations might fall below the tolerance triggering event detection. For such continuation problems, the setting \mcode{inf} for \mcode{'norm'} is recommended as it is expected to result in progress along the solution manifold that is more robust to mesh variations than use of the Euclidean norm. 
+
+The \mcode{'atlas_1d'} atlas algorithm supports options triggering the detection of fold points (\mcode{'FP'} which is true by default) and branch points (\mcode{'BP'} which is true by default), as well as an optional string label of an active continuation parameter (\mcode{'fpar'}) associated with fold point detection (which, otherwise, defaults to the first active continuation parameter). Optional settings governing adaptive problem construction include the frequency of adaptive updates (\mcode{'NAdapt'} with default value of $0$, i.e., no adaptive updates) and the maximum number of supported sweeps through toolbox remeshing routines during each update (\mcode{'RMMX'} with default value of $10$).
+
+Adaptive step-size management in \mcode{'atlas_1d'} is governed by optional settings defining the initial step size (\mcode{'h0'} with default value $0.1$), the maximum step size (\mcode{'h_max'} with default value $0.5$), the minimum step size (\mcode{'h_min'} with default value $0.01$), the maximum step size adaptation factor (\mcode{'h_fac_max'} with default value $2.0$), and the minimum step size adaptation factor (\mcode{'h_fac_min'} with default value $0.5$). Additional relevant optional settings include the maximum Euclidean norm of the problem residual evaluated at a predictor (\mcode{'MaxRes'} with default value $0.1$) and the maximum angle between two consecutive tangent vectors on a curve segment (\mcode{'al_max'} with default value $7$ degrees). As suggested above, the interpretation of these settings lacks invariance in continuation problems with adaptive problem construction. Some experimentation with the settings may be required in order to generate satisfactory output in such problems.
+
+Continuation along a one-dimensional solution manifold with \mcode{'atlas_1d'} terminates once the computational boundary is reached from an interior initial point, or once the maximum number of steps along each direction is reached. The latter is determined by the optional setting \mcode{'PtMX'} which defaults to $100$, corresponding to $100$ steps in each direction. An assignment
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_set(prob, 'cont', 'PtMX', [ neg, pos ]);
+\end{lstlisting}
+for some nonnegative integers \mcode{neg} and \mcode{pos} results in \mcode{neg} steps in the initial direction of continuation and \mcode{pos} steps in the opposite direction.
+
+\subsection{Multi-dimensional manifolds: \mcode{'atlas_kd'}}
+
+The \mcode{'atlas_kd'} atlas algorithm encodes an expanding boundary algorithm for solution manifolds of dimension $d$ greater than or equal to one provided that the number of active continuation parameters is greater than or equal to $d$. The algorithm generates an approximate polyhedral tessellation of the solution manifold that grows from an initial point, and can start on the boundary of a computational domain as long as the solution manifold intersects the boundary transversally at the initial point. Special points may be detected only along individual curve segments. Except for special points, the algorithm constructs only one new solution in each stage of expansion. Each stage of consolidation extends the polyhedral tessellation and assigns individual polyhedra to distinct collections of boundary charts, interior charts, and charts on the boundary of the computational domain.
+
+In the \mcode{'atlas_kd'} atlas algorithm, the projection condition that accompanies an initial solution guess is linear and homogeneous in the deviation from the initial solution guess. Provided that the initial solution guess is close to a regular solution, the $d$ rows of the coefficient matrix constitute an orthonormal basis for a space that includes unit vectors along the first ($\le d$) active continuation parameter axes, except for those that are close to perpendicular to the solution manifold at the nearby solution. If the initial solution guess is close to a branch point, the \mcode{'t0'} flag may be used in a call to \mcode{coco_add_func} in order to force construction of an orthonormal basis of approximate tangent vectors to one of the intersecting hypersurfaces. In this case, no corrector is applied to the initial solution guess.
+
+In each stage of expansion, the \mcode{'atlas_kd'} algorithm relies on i) a pseudo-arclength projection condition defined in terms of a tangent matrix whose $d$ rows constitute an orthonormal basis of the tangent space to the solution manifold associated with a boundary chart, ii) a unit direction vector, and iii) a step size parameter. The algorithm supports adaptive step size adjustments along the solution manifold in order to achieve properly resolved stages of expansion with a reasonably small set of individual solutions. Here, the step size associated with a particular stage of expansion is described locally in terms of the Euclidean distance in the active continuation parameter domain between an existing solution and the predictor constructed along a tangent line to the solution manifold. The algorithm supports global measurements of solution similarity in this domain and, consequently, is able to avoid redundant coverage of closed solution manifolds.
+
+The \mcode{'atlas_kd'} atlas algorithm supports adaptive problem constructions, including changes to the numbers and interpretations of problem variables and problem constraints. Such adaptive updates are applied before the construction of a predictor in a stage of expansion. Indeed, after each such adaptive update, the corrector is first applied with zero step size in order to construct a corrected solution on the solution manifold and a local tangent vector in the new problem variable domain. The predictor and projection condition are constructed from this corrected solution and tangent vector. 
+
+Since a nonzero step size is associated with a Euclidean distance in the active continuation parameter domain, it has invariant meaning during analysis of a continuation problem with adaptive problem construction provided that the corresponding monitor functions are invariantly defined. It is recommended that these be defined such that the rates of change of different active continuation parameters are comparable in magnitude along the solution manifold.
+
+Optional settings of the \mcode{'atlas_kd'} atlas algorithm governing adaptive problem construction include the frequency of adaptive updates (\mcode{'NAdapt'} with default value of $0$) associated with any chain of successively constructed solutions and the maximum number of supported sweeps through toolbox remeshing routines during each update (\mcode{'RMMX'} with default value of $10$).
+
+Adaptive step-size management in \mcode{'atlas_kd'} is governed by optional settings defining the initial step size (\mcode{'R'} with default value $0.1$), the maximum step size (\mcode{'R_max'} with default value $1$), the minimum step size (\mcode{'R_min'} with default value $0.00001$), the maximum step size adaptation factor (\mcode{'R_fac_max'} with default value $2.0$), and the minimum step size adaptation factor (\mcode{'R_fac_min'} with default value $0.5$). Additional relevant optional settings include the maximum Euclidean norm of the problem residual evaluated at a predictor (\mcode{'MaxRes'} with default value $1$) and the maximum angle between two consecutive tangent vectors on a curve segment (\mcode{'al_max'} with default value $10$ degrees).
+
+Continuation with \mcode{'atlas_kd'} terminates once there are no more boundary charts, or once the maximum number of steps is reached. The latter is determined by the optional setting \mcode{'PtMX'} which defaults to $100$.
+
+The \mcode{'atlas_kd'} atlas algorithm stores a cell array consisting of all computed charts and a list of boundary chart integer identifiers in the \mcode{atlas} field of the bifurcation data cell array that is stored to disk after each successful continuation step. This information may be used to visualize the polyhedral tessellation using the \mcode{plot_atlas_kd} utility.
+
+\section{Application  -- \texttt{linode}}
+
+Consider the linear oscillator with harmonic excitation governed by the explicitly time-dependent dynamical system
+\begin{equation}
+\dot{x}_1=x_2,\,\dot{x}_2=-p_1x_1-x_2+p_2\cos t
+\end{equation}
+in terms of the vector of state variables $x=\left(x_1,x_2\right)\in\mathbb{R}^2$ and the vector of problem parameters $p=\left(p_1,p_2\right)\in\mathbb{R}^2$. For arbitrary initial conditions, the steady-state behavior is then given by the $2\pi$-periodic orbit
+\begin{equation}
+x_1(t)=x_1^\ast(t):=p_2\frac{\sin t+(p_1-1)\cos t}{p_1^2-2p_1+2},\,x_2(t)=x_2^\ast(t):=p_2\frac{\cos t-(p_1-1)\sin t}{p_1^2-2p_1+2}.
+\end{equation}
+We consider below continuation along this family of periodic orbits under variations only in $p_1$ or simultaneously in $p_1$ and $p_2$. 
+
+
+\paragraph{Use of \mcode{'atlas_1d'} with default norm}
+
+We first invoke the \mcode{ode_isol2coll} constructor and append periodic boundary conditions with $T=2\pi$ and $T_0=0$, as shown in the commands below.
+\begin{lstlisting}[language=coco-highlight]
+ >> prob = coco_prob;
+ >> prob = coco_set(prob, 'ode', 'autonomous', false);
+ >> prob = coco_set(prob, 'coll', 'NTST', 10, 'MXCL', false);
+ >> p0   = [1; 1];
+ >> t0   = (0:2*pi/99:2*pi)';
+ >> x0   = [p0(2)*(sin(t0)+(p0(1)-1)*cos(t0))/(p0(1)^2-2*p0(1)+2) ...
+      p0(2)*(cos(t0)-(p0(1)-1)*sin(t0))/(p0(1)^2-2*p0(1)+2) ];
+ >> prob = ode_isol2coll(prob, '', @linode, t0, x0, {'p1' 'p2'}, p0);
+ >> [data, uidx] = coco_get_func_data(prob, 'coll', 'data', 'uidx');
+ >> maps = data.coll_seg.maps;
+ >> prob = coco_add_func(prob, 'po', @linode_bc, [], 'zero', ...
+      'uidx', uidx([maps.x0_idx; maps.x1_idx; maps.T0_idx; maps.T_idx]));
+\end{lstlisting}
+where
+ \begin{lstlisting}[language=coco-highlight]
+function y = linode(t, x, p)
+
+x1 = x(1,:);
+x2 = x(2,:);
+p1 = p(1,:);
+p2 = p(2,:);
+
+y(1,:) = x2;
+y(2,:) = -x2-p1.*x1+p2.*cos(t);
+
+end
+
+function [data, y] = linode_bc(prob, data, u)
+
+x0 = u(1:2);
+x1 = u(3:4);
+T0 = u(5);
+T  = u(6);
+
+y = [x1(1:2)-x0(1:2); T0; T-2*pi];
+
+end
+\end{lstlisting}
+The corresponding restricted continuation problem is expressed in terms of 104 continuation variables, 104 constraints, and two inactive continuation parameters. We obtain a one-dimensional solution manifold by releasing \mcode{'p1'} as shown in the commands below.
+ \begin{lstlisting}[language=coco-highlight]
+ >> prob = coco_set(prob, 'cont', 'atlas', '1d', 'PtMX', 200,  ...
+     'NAdapt', 0, 'h0', .05, 'h_max', .05, 'h_min', .05);
+>> coco(prob, 'dim_1_atlas_1d', [], 1, 'p1', [0.2 2]);
+\end{lstlisting}
+ Here, the call to the \mcode{coco} entry-point function is preceded by a selection of the \mcode{'atlas_1d'} atlas algorithm and an assignment of numerical values to the various atlas algorithm settings. Specifically, continuation here proceeds for up to 200 steps in either direction of continuation on the interval $p_1\in[0.2,2]$, with a fixed step size of $0.05$ and without adaptive remeshing of the trajectory discretization. By default, the \mcode{'norm'} setting equals $2$, corresponding to the use of the Euclidean norm for measuring distances along solution manifolds. The resulting screen output is shown below.
+\begin{lstlisting}[language=coco-highlight]
+    STEP   DAMPING               NORMS              COMPUTATION TIMES
+  IT SIT     GAMMA     ||d||     ||f||     ||U||   F(x)  DF(x)  SOLVE
+   0                          6.76e-03  9.61e+00    0.0    0.0    0.0
+   1   1  1.00e+00  2.60e-03  2.26e-12  9.62e+00    0.0    0.0    0.0
+   2   1  1.00e+00  4.26e-12  2.66e-15  9.62e+00    0.0    0.0    0.0
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:00   9.6166e+00      1  EP      1.0000e+00
+   10  00:00:00   9.5901e+00      2          9.3055e-01
+   20  00:00:00   9.5396e+00      3          8.6046e-01
+   30  00:00:00   9.4654e+00      4          7.8905e-01
+   40  00:00:01   9.3681e+00      5          7.1561e-01
+   50  00:00:01   9.2489e+00      6          6.3936e-01
+   60  00:00:01   9.1091e+00      7          5.5941e-01
+   70  00:00:02   8.9508e+00      8          4.7474e-01
+   80  00:00:02   8.7763e+00      9          3.8413e-01
+   90  00:00:02   8.5886e+00     10          2.8617e-01
+   99  00:00:02   8.4289e+00     11  EP      2.0000e-01
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:02   9.6166e+00     12  EP      1.0000e+00
+   10  00:00:03   9.6190e+00     13          1.0694e+00
+   20  00:00:03   9.5979e+00     14          1.1395e+00
+   30  00:00:03   9.5541e+00     15          1.2109e+00
+   40  00:00:03   9.4888e+00     16          1.2844e+00
+   50  00:00:03   9.4035e+00     17          1.3606e+00
+   60  00:00:03   9.3006e+00     18          1.4406e+00
+   70  00:00:04   9.1825e+00     19          1.5253e+00
+   80  00:00:04   9.0527e+00     20          1.6159e+00
+   90  00:00:04   8.9149e+00     21          1.7138e+00
+  100  00:00:04   8.7739e+00     22          1.8209e+00
+  110  00:00:04   8.6353e+00     23          1.9391e+00
+  115  00:00:05   8.5720e+00     24  EP      2.0000e+00
+\end{lstlisting}
+ As a comparison, consider the following screen output, obtained after reconstructing the continuation problem with the \mcode{'NTST'} option of the \mcode{'coll'} toolbox set equal to $50$.
+\begin{lstlisting}[language=coco-highlight]
+    STEP   DAMPING               NORMS              COMPUTATION TIMES
+  IT SIT     GAMMA     ||d||     ||f||     ||U||   F(x)  DF(x)  SOLVE
+   0                          1.52e-02  1.71e+01    0.0    0.0    0.0
+   1   1  1.00e+00  5.81e-03  8.28e-13  1.71e+01    0.0    0.0    0.0
+   2   1  1.00e+00  2.16e-12  5.41e-15  1.71e+01    0.0    0.0    0.0
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:00   1.7102e+01      1  EP      1.0000e+00
+   10  00:00:00   1.7091e+01      2          9.6849e-01
+   20  00:00:00   1.7066e+01      3          9.3692e-01
+   30  00:00:00   1.7026e+01      4          9.0523e-01
+   40  00:00:00   1.6972e+01      5          8.7335e-01
+   50  00:00:01   1.6904e+01      6          8.4121e-01
+   60  00:00:01   1.6822e+01      7          8.0875e-01
+   70  00:00:01   1.6725e+01      8          7.7591e-01
+   80  00:00:01   1.6615e+01      9          7.4260e-01
+   90  00:00:01   1.6490e+01     10          7.0875e-01
+  100  00:00:02   1.6353e+01     11          6.7428e-01
+  110  00:00:02   1.6201e+01     12          6.3910e-01
+  120  00:00:02   1.6037e+01     13          6.0313e-01
+  130  00:00:02   1.5860e+01     14          5.6625e-01
+  140  00:00:02   1.5670e+01     15          5.2836e-01
+  150  00:00:03   1.5468e+01     16          4.8935e-01
+  160  00:00:03   1.5254e+01     17          4.4908e-01
+  170  00:00:03   1.5028e+01     18          4.0741e-01
+  180  00:00:03   1.4791e+01     19          3.6419e-01
+  190  00:00:03   1.4543e+01     20          3.1923e-01
+  200  00:00:04   1.4286e+01     21  EP      2.7235e-01
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:04   1.7102e+01     22  EP      1.0000e+00
+   10  00:00:04   1.7098e+01     23          1.0315e+00
+   20  00:00:04   1.7081e+01     24          1.0631e+00
+   30  00:00:04   1.7048e+01     25          1.0948e+00
+   40  00:00:05   1.7002e+01     26          1.1267e+00
+   50  00:00:05   1.6942e+01     27          1.1588e+00
+   60  00:00:05   1.6867e+01     28          1.1912e+00
+   70  00:00:05   1.6779e+01     29          1.2241e+00
+   80  00:00:05   1.6677e+01     30          1.2574e+00
+   90  00:00:06   1.6561e+01     31          1.2913e+00
+  100  00:00:06   1.6432e+01     32          1.3257e+00
+  110  00:00:06   1.6290e+01     33          1.3609e+00
+  120  00:00:06   1.6136e+01     34          1.3969e+00
+  130  00:00:06   1.5969e+01     35          1.4338e+00
+  140  00:00:07   1.5790e+01     36          1.4716e+00
+  150  00:00:07   1.5599e+01     37          1.5106e+00
+  160  00:00:07   1.5397e+01     38          1.5509e+00
+  170  00:00:07   1.5185e+01     39          1.5926e+00
+  180  00:00:07   1.4962e+01     40          1.6358e+00
+  190  00:00:08   1.4729e+01     41          1.6808e+00
+  200  00:00:08   1.4488e+01     42  EP      1.7277e+00
+\end{lstlisting}
+In this case, the number of continuation variables equals $504$. This increase is reflected in the interpretation of the step size, resulting in an increase in the number of steps in each direction for similar variations in \mcode{'p1'} and termination prior to reaching the boundaries of the computational domain.
+
+A similar change occurs if we allow adaptive remeshing of the trajectory discretization by setting the \mcode{'NAdapt'} option of the atlas algorithm to $1$, as shown in the screen output below.
+\begin{lstlisting}[language=coco-highlight]
+    STEP   DAMPING               NORMS              COMPUTATION TIMES
+  IT SIT     GAMMA     ||d||     ||f||     ||U||   F(x)  DF(x)  SOLVE
+   0                          1.52e-02  1.71e+01    0.0    0.0    0.0
+   1   1  1.00e+00  5.81e-03  8.28e-13  1.71e+01    0.0    0.0    0.0
+   2   1  1.00e+00  2.16e-12  5.41e-15  1.71e+01    0.0    0.0    0.0
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:00   1.7102e+01      1  EP      1.0000e+00
+   10  00:00:00   1.4904e+01      2          9.6550e-01
+   20  00:00:00   1.3094e+01      3          9.2502e-01
+   30  00:00:01   1.1212e+01      4          8.7544e-01
+   40  00:00:01   1.1143e+01      5          8.2061e-01
+   50  00:00:01   1.1054e+01      6          7.6475e-01
+   60  00:00:01   1.0944e+01      7          7.0749e-01
+   70  00:00:02   1.0815e+01      8          6.4847e-01
+   80  00:00:02   1.0667e+01      9          5.8724e-01
+   90  00:00:02   1.0305e+01     10          5.2294e-01
+  100  00:00:03   1.0125e+01     11          4.5376e-01
+  110  00:00:03   9.9288e+00     12          3.8050e-01
+  120  00:00:03   9.7196e+00     13          3.0234e-01
+  130  00:00:03   9.4991e+00     14          2.1834e-01
+  133  00:00:04   9.4519e+00     15  EP      2.0000e-01
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:04   1.7102e+01     16  EP      1.0000e+00
+   10  00:00:04   1.4913e+01     17          1.0345e+00
+   20  00:00:04   1.3117e+01     18          1.0750e+00
+   30  00:00:05   1.1257e+01     19          1.1246e+00
+   40  00:00:05   1.1208e+01     20          1.1794e+00
+   50  00:00:05   1.1139e+01     21          1.2353e+00
+   60  00:00:05   1.1051e+01     22          1.2925e+00
+   70  00:00:06   1.0945e+01     23          1.3515e+00
+   80  00:00:06   1.0821e+01     24          1.4128e+00
+   90  00:00:06   1.0489e+01     25          1.4771e+00
+  100  00:00:07   1.0338e+01     26          1.5462e+00
+  110  00:00:07   1.0175e+01     27          1.6195e+00
+  120  00:00:07   1.0003e+01     28          1.6977e+00
+  130  00:00:07   9.8227e+00     29          1.7817e+00
+  140  00:00:08   9.6389e+00     30          1.8726e+00
+  150  00:00:08   9.4550e+00     31          1.9719e+00
+  153  00:00:08   9.2725e+00     32  EP      2.0000e+00
+\end{lstlisting}
+In this case, the number of continuation variables changes during continuation from a maximum of $504$ to a minimum of $154$. As the number of continuation variables decreases, the change in \mcode{'p1'} per step increases and continuation terminates on the boundaries of the computational domain before reaching the maximum number of steps.
+
+\paragraph{Use of \mcode{'atlas_1d'} with maximum norm}
+We obtain a behavior that is more robust to variations in the mesh size by setting the optional setting \mcode{'norm'} to \mcode{inf}. In this case, with \mcode{'NTST'} equal to $10$, the commands
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_set(prob, 'cont', 'atlas', '1d', 'PtMX', 200,  ...
+  'NAdapt', 0, 'h0', .05, 'h_max', .05, 'h_min', .05, 'norm', inf);
+>> coco(prob, 'dim_1_atlas_1d', [], 1, 'p1', [0.2 2]);
+\end{lstlisting}
+result in the screen output
+\begin{lstlisting}[language=coco-highlight]
+    STEP   DAMPING               NORMS              COMPUTATION TIMES
+  IT SIT     GAMMA     ||d||     ||f||     ||U||   F(x)  DF(x)  SOLVE
+   0                          6.76e-03  9.61e+00    0.0    0.0    0.0
+   1   1  1.00e+00  2.60e-03  2.26e-12  9.62e+00    0.0    0.0    0.0
+   2   1  1.00e+00  4.26e-12  2.66e-15  9.62e+00    0.0    0.0    0.0
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:00   9.6166e+00      1  EP      1.0000e+00
+   10  00:00:00   8.9874e+00      2          4.9400e-01
+   16  00:00:00   8.4289e+00      3  EP      2.0000e-01
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:00   9.6166e+00      4  EP      1.0000e+00
+   10  00:00:00   9.2099e+00      5          1.5060e+00
+   20  00:00:00   8.5720e+00      6  EP      2.0000e+00
+\end{lstlisting}
+We note an apparently close relationship between the step size and variations in \mcode{'p1'}.
+
+The same number of steps are required by the algorithm when \mcode{'NTST'} is set equal to $50$, as shown below.
+\begin{lstlisting}[language=coco-highlight]
+    STEP   DAMPING               NORMS              COMPUTATION TIMES
+  IT SIT     GAMMA     ||d||     ||f||     ||U||   F(x)  DF(x)  SOLVE
+   0                          1.52e-02  1.71e+01    0.0    0.0    0.0
+   1   1  1.00e+00  5.81e-03  8.28e-13  1.71e+01    0.0    0.0    0.0
+   2   1  1.00e+00  2.16e-12  5.41e-15  1.71e+01    0.0    0.0    0.0
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:00   1.7102e+01      1  EP      1.0000e+00
+   10  00:00:00   1.5491e+01      2          4.9376e-01
+   16  00:00:00   1.3892e+01      3  EP      2.0000e-01
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:00   1.7102e+01      4  EP      1.0000e+00
+   10  00:00:00   1.5621e+01      5          1.5062e+00
+   20  00:00:01   1.3171e+01      6  EP      2.0000e+00
+\end{lstlisting}
+With \mcode{'NAdapt'} set equal to $1$, the screen output
+\begin{lstlisting}[language=coco-highlight]
+    STEP   DAMPING               NORMS              COMPUTATION TIMES
+  IT SIT     GAMMA     ||d||     ||f||     ||U||   F(x)  DF(x)  SOLVE
+   0                          1.52e-02  1.71e+01    0.0    0.0    0.0
+   1   1  1.00e+00  5.81e-03  8.28e-13  1.71e+01    0.0    0.0    0.0
+   2   1  1.00e+00  2.16e-12  5.41e-15  1.71e+01    0.0    0.0    0.0
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:00   1.7102e+01      1  EP      1.0000e+00
+   10  00:00:00   1.3574e+01      2          4.9378e-01
+   16  00:00:00   1.1490e+01      3  EP      2.0000e-01
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:00   1.7102e+01      4  EP      1.0000e+00
+   10  00:00:01   1.3722e+01      5          1.5062e+00
+   20  00:00:01   1.0653e+01      6  EP      2.0000e+00
+\end{lstlisting}
+corresponds to variations in the number of continuation variables from a maximum of $504$ to a minimum of $264$ without any significant impact on the change of \mcode{'p1'} per step.
+
+
+\paragraph{Use of \mcode{'atlas_kd'}}
+As an alternative to \mcode{'atlas_1d'}, we demonstrate the application of \mcode{'atlas_kd'} to continuation along the same one-dimensional manifold. With \mcode{'NTST'} equal to $10$, the commands
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_set(prob, 'cont', 'atlas', 'kd',  'PtMX', 200,  ...
+  'NAdapt', 0, 'R', .05, 'R_max', .05, 'R_min', .05);
+>> coco(prob, 'dim_1_atlas_kd', [], 1, 'p1', [0.2 2]);
+\end{lstlisting}
+then generate the screen output
+\begin{lstlisting}[language=coco-highlight]
+    STEP   DAMPING               NORMS              COMPUTATION TIMES
+  IT SIT     GAMMA     ||d||     ||f||     ||U||   F(x)  DF(x)  SOLVE
+   0                          6.76e-03  9.61e+00    0.0    0.0    0.0
+   1   1  1.00e+00  2.60e-03  2.26e-12  9.62e+00    0.0    0.0    0.0
+   2   1  1.00e+00  4.26e-12  2.66e-15  9.62e+00    0.0    0.0    0.0
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:00   9.6166e+00      1  EP      1.0000e+00
+   10  00:00:00   9.5405e+00      2          1.2282e+00
+   20  00:00:01   9.2765e+00      3          1.4583e+00
+   30  00:00:02   8.9483e+00      4          1.6897e+00
+   35  00:00:02   8.4289e+00      5  EP      2.0000e-01
+   40  00:00:02   8.5720e+00      6  EP      2.0000e+00
+\end{lstlisting}
+The output remains virtually the same when \mcode{'NTST'} is increased to $50$, as shown below
+\begin{lstlisting}[language=coco-highlight]
+    STEP   DAMPING               NORMS              COMPUTATION TIMES
+  IT SIT     GAMMA     ||d||     ||f||     ||U||   F(x)  DF(x)  SOLVE
+   0                          1.52e-02  1.71e+01    0.0    0.0    0.0
+   1   1  1.00e+00  5.81e-03  8.28e-13  1.71e+01    0.0    0.0    0.0
+   2   1  1.00e+00  2.16e-12  5.41e-15  1.71e+01    0.0    0.0    0.0
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:00   1.7102e+01      1  EP      1.0000e+00
+   10  00:00:00   1.6767e+01      2          1.2282e+00
+   20  00:00:01   1.5853e+01      3          1.4584e+00
+   30  00:00:02   1.4681e+01      4          1.6901e+00
+   35  00:00:02   1.3892e+01      5  EP      2.0000e-01
+   40  00:00:03   1.3171e+01      6  EP      2.0000e+00
+\end{lstlisting}
+In this case, if we let \mcode{'NAdapt'} equal $1$, the screen output
+\begin{lstlisting}[language=coco-highlight]
+    STEP   DAMPING               NORMS              COMPUTATION TIMES
+  IT SIT     GAMMA     ||d||     ||f||     ||U||   F(x)  DF(x)  SOLVE
+   0                          1.52e-02  1.71e+01    0.0    0.0    0.0
+   1   1  1.00e+00  5.81e-03  8.28e-13  1.71e+01    0.0    0.0    0.0
+   2   1  1.00e+00  2.16e-12  5.41e-15  1.71e+01    0.0    0.0    0.0
+
+ STEP      TIME        ||U||  LABEL  TYPE            p1
+    0  00:00:00   1.7102e+01      1  EP      1.0000e+00
+   10  00:00:01   1.5592e+01      2          1.2282e+00
+   20  00:00:02   1.3909e+01      3          1.4584e+00
+   30  00:00:04   1.2296e+01      4          1.6900e+00
+   35  00:00:04   1.1222e+01      5  EP      2.0000e-01
+   40  00:00:05   1.0415e+01      6  EP      2.0000e+00
+\end{lstlisting}
+corresponds to variations in the number of continuation variables from a maximum of $504$ to a minimum of $244$.
+
+In contrast to the \mcode{'atlas_1d'} algorithm, which proceeds in one direction along the solution manifold at a time, the \mcode{'atlas_kd'} algorithm here expands the atlas with charts on alternating sides relative to the initial chart. The change in \mcode{'p1'} in each step equals $0.05$ divided by a safety factor (\mcode{'Rmarg'} with default value $1.1$).
+
+We may use the \mcode{plot_atlas_kd} utility to visualize the result of continuation using the \mcode{'atlas_kd'} atlas algorithm. To this end, we append the call
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_pars(prob, 'vel', uidx(maps.x0_idx(2)), 'vel', 'active');
+\end{lstlisting}
+to the problem construction. The commands
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_set(prob, 'cont', 'atlas', 'kd',  'PtMX', 200,  ...
+     'NAdapt', 1, 'R', .2, 'R_max', 2, 'R_min', .02);
+>> coco(prob, 'dim_1_atlas_kd', [], 1, {'p1' 'vel'}, [0.2 2]);
+\end{lstlisting}
+modify the values of the \mcode{'R_min'} and \mcode{'R_max'} to ensure properly resolved curve segments during continuation. The commands
+\begin{lstlisting}[language=coco-highlight]
+>> atlas = coco_bd_read('dim_1_atlas_kd', 'atlas');
+>> figure; plot_atlas_kd(atlas.charts,2)
+\end{lstlisting}
+extract the atlas from the stored solution data and visualize the polyhedral tesselation of the solution manifold in terms of the projection onto the \mcode{'p1'} and \mcode{'vel'} continuation parameter space.
+
+Finally, the commands
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_set(prob, 'cont', 'atlas', 'kd',  'PtMX', 1000, ...
+     'NAdapt', 1, 'R', .1, 'R_max', 10, 'R_min', .01);
+>> coco(prob, 'dim_2_atlas_kd', [], 2, {'p1' 'p2' 'vel'}, {[0.2 2], [0 1]});
+\end{lstlisting}
+result in continuation along the two-dimensional solution manifold obtained with both \mcode{'p1'} and \mcode{'p2'} allowed to vary. Visualization of the polyhedral tesselation projected onto the \mcode{'p1'}, \mcode{'p2'} and \mcode{'vel'} continuation paramter space results from the commands
+\begin{lstlisting}[language=coco-highlight]
+>> atlas = coco_bd_read('dim_2_atlas_kd', 'atlas');
+>> figure; plot_atlas_kd(atlas.charts,3)
+\end{lstlisting}
+The command
+\begin{lstlisting}[language=coco-highlight]
+>> plot_atlas_kd(atlas.charts,3,'basepoints')
+\end{lstlisting}
+overlays the locus of base points of individual charts.\\
+\medskip
+
+\begin{exercises}
+\item Repeat the analysis in this section using an autonomous implementation of the governing vector field and with explicit Jacobians.
+\item Repeat the construction of a two-dimensional solution manifold using \mcode{'atlas_kd'} by projecting onto \mcode{'p1'}, \mcode{'p2'} and an active continuation parameter corresponding to the maximum velocity along the periodic orbit.
+\item Explore the various optional settings of the \mcode{'atlas_1d'} and \mcode{'atlas_kd'} atlas algorithms.
+\item Revisit the atlas algorithms in Part III of \emph{Recipes for Continuation} and investigate a modification that supports global comparisons of solutions using a subset of continuation variables that are invariant in number and interpretation.
+\end{exercises}
+    
+ \end{document}

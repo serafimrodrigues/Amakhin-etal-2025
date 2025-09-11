@@ -1,0 +1,1231 @@
+% Activate the following line by filling in the right side. If for example the name of the root file is Main.tex, write
+% "...root = Main.tex" if the chapter file is in the same directory, and "...root = ../Main.tex" if the chapter is in a subdirectory.
+ 
+%!TEX root =  CORE-Tutorial.tex
+
+\section{Introduction}
+The software package \textsc{coco} is the result of joint development initiated by Harry Dankowicz and Frank Schilder in 2007, and including Mingwu Li between 2016 and 2022, and Jan Sieber since 2020. Significant additional contributions have been made by Michael E.~Henderson, Erika Fotsch, and Yuqing Wang. Helpful feedback and contributions are also acknowledged from David Barton, Hinke Osinga, and a growing user community. Extensive discourse on the design philosophy and mathematical underpinnings of the \textsc{coco} platform is available in \emph{Recipes for Continuation}\footnote{Dankowicz, H.~\& Schilder, F., \emph{Recipes for Continuation}, Society for Industrial and Applied Mathematics, 2013.}, which includes a large collection of template toolboxes and example problems.
+
+The first official release of \textsc{coco} coincided with the publication of \emph{Recipes for Continuation} in 2013. The November 2015 release introduced fully documented, production-ready toolboxes for common forms of bifurcation analysis of equilibria and periodic orbits in dynamical systems. These provided support for continuation of
+\begin{itemize}
+\item equilibria in smooth dynamical systems (\mcode{'ep'});
+\item constrained trajectory segments with independent and adaptive discretizations in autonomous and non-autonomous dynamical systems (\mcode{'coll'}); and
+\item single-segment periodic orbits in smooth, autonomous or non-autonomous dynamical systems, and multi-segment periodic orbits in hybrid, autonomous dynamical systems (\mcode{'po'}).
+\end{itemize} 
+
+The November 2017 release made significant updates to the \textsc{coco} core and library of toolboxes and demos to provide support for constrained design optimization on integro-differential boundary-value problems\footnote{Li, M.~\& Dankowicz, H., ``Staged Construction of Adjoints for Constrained Optimization of Integro-Differential Boundary-Value Problems,'' \emph{SIAM J.~Applied Dynamical Systems} \textbf{17(2)}, pp.~1117--1151, 2018.}. These updates enabled the staged construction of the adjoint equations associated with equality-constrained optimization problems, and provided support for adaptive remeshing of these equations in parallel with updates to the problem discretization of the corresponding boundary-value problems. The March 2020 release extended this functionality to also allow for finite-dimensional inequality constraints, bounding the search for extrema to an implicitly-defined feasible region\footnote{Li, M.~\& Dankowicz, H., ``Optimization with Equality and Inequality Constraints Using Parameter Continuation,'' \emph{Applied Mathematics and Computation} \textbf{375}, art.~no.~125058, 2020.}. The January 2025 release further expands the universe of tractable problems by enabling analysis of solution manifolds defined by linearly dependent constraints.
+
+The original release of \textsc{coco} included a default atlas algorithm for one-dimensional solution manifolds. An implementation of Henderson's \textsc{multifario} package as a \textsc{coco}-compatible atlas algorithm for multi-dimensional manifolds of solutions to non-adaptive continuation problems was included as an alpha version in the November 2017 release. The March 2020 release included the updated atlas algorithm \mcode{'atlas_kd'} for multi-dimensional solution manifolds for adaptive continuation problems (with varying embedding dimension and variable interpretation)\footnote{Dankowicz, H., Wang, Y., Schilder, F.~\& Henderson, M.E., ``Multidimensional Manifold Continuation for Adaptive Boundary-Value Problems,'' \emph{J.~Computational and Nonlinear Dynamics} \textbf{15(5)}, art.~no.~051002, 2020.}. A memory leak in the implementation of this algorithm was resolved with the August 2023 release.
+
+It has not been the intent of the \textsc{coco} development to build graphical user interfaces to the methods and data invoked and processed, respectively, during analysis of a continuation problem. Some low-level data processing and visualization routines are included with the \textsc{coco} core and described in this tutorial. Support for run-time access to data is available in \textsc{coco} through a signal-and-slot mechanism as described in \emph{Recipes for Continuation}. 
+%More importantly, we recommend the use of the run-time debugging environment in \textsc{matlab} in instances where input errors
+
+Usage of basic \textsc{coco} constructors and utilities is illustrated in several examples in this tutorial. Each example corresponds to fully documented code in the \mcode{coco/core/examples} folder in the \textsc{coco} release. Slight differences between the code included below and the example implementations in \mcode{coco/core/examples} show acceptable variations in the \textsc{coco} syntax and demonstrate alternative solutions to construction and analysis. To gain further insight, please run the code to generate and explore figures and screen output.
+
+Additional detailed information about \textsc{coco} utilities deployed in these examples may be found in the document ``Short Developer's Reference for \textsc{coco},'' available in the \mcode{coco/help} folder in the \textsc{coco} release, and in \emph{Recipes for Continuation}.
+
+\section{Problem formulation}
+\label{chap: core}
+
+The \textsc{coco} platform supports construction and analysis of continuation problems of the general form
+\begin{equation}
+\left(\begin{array}{c}\Phi(u)\\\Psi(u)-\mu\\\Lambda^\top(u)\lambda\\\Xi(u,\lambda,v)\\\Theta(u,\lambda,v)-\nu\end{array}\right)=0
+\end{equation}
+in terms of collections of \emph{zero functions} $\Phi:\mathbb{R}^{n_u}\rightarrow\mathbb{R}^{n_\Phi}$, \emph{monitor functions} $\Psi:\mathbb{R}^{n_u}\rightarrow\mathbb{R}^{n_\Psi}$, \emph{adjoint functions} $\Lambda:\mathbb{R}^{n_u}\rightarrow\mathbb{R}^{n_\lambda\times n_\Lambda}$, \emph{complementary zero functions} $\Xi:\mathbb{R}^{n_u}\times\mathbb{R}^{n_\lambda}\times\mathbb{R}^{n_v}\rightarrow\mathbb{R}^{n_\Xi}$, and \emph{complementary monitor functions} $\Theta:\mathbb{R}^{n_u}\times\mathbb{R}^{n_\lambda}\times\mathbb{R}^{n_v}\rightarrow\mathbb{R}^{n_\Theta}$, as well as collections of \emph{continuation variables} $u$, \emph{continuation parameters} $\mu$, \emph{continuation multipliers} $\lambda$, \emph{complementary continuation variables} $v$, and \emph{complementary continuation parameters} $\nu$. The vectors $u$, $\lambda$, and $v$ are said to be \emph{initialized} when they are associated with identically-sized numerical vectors $u_0$, $\lambda_0$, and $v_0$. Unless otherwise stated, the vectors $\mu$ and $\nu$ are initialized with $\Psi(u_0)$ and $\Theta(u_0,\lambda_0,v_0)$, respectively.
+
+Consider an indexing of the elements of $\mu$ by integers in the set $\{1,\ldots,n_\Psi\}$ and of the elements of $\nu$ by integers in the set $\{n_\Psi+1,\ldots,n_\Psi+n_\Theta\}$. Then, during continuation, the index sets $\mathbb{I}_\mu\subseteq\{1,\ldots,n_\Psi\}$ and $\mathbb{I}_\nu\subseteq\{n_\Psi+1,\ldots,n_\Psi+n_\Theta\}$ identify continuation parameters that are fixed and not included among the unknowns whose values are defined implicitly by the corresponding \emph{restricted} continuation problem. Continuation parameters indexed by integers in $\mathbb{I}_\mu\cup\mathbb{I}_\nu$ are said to be \emph{inactive}. The remaining continuation parameters are said to be \emph{active}. The \emph{dimensional deficit} of the continuation problem is the difference between the number of unknowns and the number of equations, i.e., $n_u+n_\lambda+n_v-n_\Phi-n_\Lambda-n_\Xi-\left|\mathbb{I}_\mu\right|-\left|\mathbb{I}_\nu\right|$. When this is greater than $0$, it equals the dimension of the unique solution manifold through any regular solution point\footnote{This relationship is violated by problems with resolvable singularities , i.e., those for which there exists a regular embedding with identical solution manifold and with dimensional deficit equal to the manifold dimension.}.
+
+Special cases of the general form include
+\begin{itemize}
+\item the (extended) continuation problem with $n_\Lambda=n_\Xi=n_\Theta=0$:
+\begin{equation}
+\label{eq:extended}
+\left(\begin{array}{c}\Phi(u)\\\Psi(u)-\mu\end{array}\right)=0
+\end{equation}
+for analysis of the manifold of solutions to the zero problem $\Phi(u)=0$, possibly constrained to submanifolds associated with inactive elements of $\mu$. In this case, the dimensional deficit reduces to $n_u-n_\Phi-\left|\mathbb{I}_\mu\right|$.
+
+\item the (augmented) continuation problem with $n_\Xi=n_v=0$ and $n_\Theta=n_{\lambda_\Psi}$:
+\begin{equation}
+\label{eq:stationary}
+\left(\begin{array}{c}\Phi(u)\\\Psi(u)-\mu\\\Lambda_\Phi^\top(u)\lambda_\Phi+\Lambda_\Psi^\top(u)\lambda_\Psi\\\lambda_\Psi-\nu\end{array}\right)=0
+\end{equation}
+for locating stationary points of an element of $\Psi$ along the manifold of solutions to the zero problem $\Phi(u)=0$, possibly constrained to submanifolds associated with inactive elements of $\mu$. Here, the adjoint functions $\Lambda_\Phi:\mathbb{R}^{n_u}\rightarrow\mathbb{R}^{n_{\lambda_\Phi}}\times\mathbb{R}^{n_\Lambda}$ and $\Lambda_\Psi:\mathbb{R}^{n_u}\rightarrow\mathbb{R}^{n_{\lambda_\Psi}}\times\mathbb{R}^{n_\Lambda}$ are related to the adjoints $\left(D\Phi(u)\right)^\ast$ and $\left(D\Psi(u)\right)^\ast$ of the Frech\'{e}t derivatives of the zero functions and monitor functions prior to problem discretization. In this case, the dimensional deficit reduces to $n_u+n_{\lambda_\Phi}+n_{\lambda_\Psi}-n_\Phi-n_\Lambda-\left|\mathbb{I}_\mu\right|-\left|\mathbb{I}_\nu\right|$.
+
+\item the (augmented) continuation problem with $n_\Xi=n_v=0$ and $n_\Theta=n_{\lambda_\Psi}+n_{\lambda_G}$:
+\begin{equation}
+\label{eq:inequality}
+\left(\begin{array}{c}\Phi(u)\\\Psi(u)-\mu\\\Lambda_\Phi^\top(u)\lambda_\Phi+\Lambda_\Psi^\top(u)\lambda_\Psi+\Lambda_G^\top(u)\lambda_G\\\lambda_\Psi-\nu_{\lambda_\Psi}\\\Theta_G(\lambda_G,-G(u))-\nu_G\end{array}\right)=0
+\end{equation}
+for locating local minima of an element of $\Psi$ along the manifold of solutions to the zero problem $\Phi(u)=0$, possibly constrained to submanifolds associated with inactive elements of $\mu$, within the computational domain defined by the inequality constraints $G(u)\le 0$ for some function $G:\mathbb{R}^{n_u}\rightarrow\mathbb{R}^{n_{\lambda_G}}$. Here, the adjoint functions additionally include a representation $\Lambda_G:\mathbb{R}^{n_u}\rightarrow\mathbb{R}^{n_{\lambda_G}}\times\mathbb{R}^{n_\Lambda}$ of the adjoint $\left(DG(u)\right)^\ast$ of the Frech\'{e}t derivative of the function $G$ prior to problem discretization, while $\Theta_G$ represents a nonlinear complementarity function that vanishes on solutions to the complementarity conditions $0\le \lambda_G\perp -G(u)\ge 0$. In this case, the dimensional deficit reduces to $n_u+n_{\lambda_\Phi}+n_{\lambda_\Psi}+n_{\lambda_G}-n_\Phi-n_\Lambda-\left|\mathbb{I}_\mu\right|-\left|\mathbb{I}_\nu\right|$.
+
+\end{itemize}
+
+%\begin{equation}
+%\left(\begin{array}{c}\Phi(u)\\\Psi(u)-\mu\\\Xi(u)-\xi\\\Lambda_\Phi^\top(u)\lambda+\Lambda_\Psi^\top(u)\eta+\Lambda_\Xi^\top(u)\sigma\\\eta-\nu\\X(\sigma,-\Xi_\sigma(u),v)-\kappa\\v-\chi\end{array}\right)=0
+%\end{equation}
+%where $\Phi:\mathbb{R}^{n_u}\rightarrow\mathbb{R}^{n_\Phi}$, $\Psi:\mathbb{R}^{n_u}\rightarrow\mathbb{R}^{n_\Psi}$, $\Xi:\mathbb{R}^{n_u}\rightarrow\mathbb{R}^{n_\Xi}$, $\Lambda_\Phi:\mathbb{R}^{n_u}\rightarrow\mathbb{R}^{n_\lambda\times n_\Lambda}$, $\Lambda_\Psi:\mathbb{R}^{n_u}\rightarrow\mathbb{R}^{n_\eta\times n_\Lambda}$, $\Lambda_\Xi:\mathbb{R}^{n_u}\rightarrow\mathbb{R}^{n_\sigma\times n_\Lambda}$, and $X:\mathbb{R}^{n_\sigma}\times\mathbb{R}^{n_\sigma}\times\mathbb{R}^{n_v}\mapsto\mathbb{R}^{n_\sigma}$. Elements of $\Phi$ are called \emph{zero functions}. Elements of $\Psi$ are called \emph{monitor functions}. Elements of $\Xi$ are called \emph{inequality functions} and $\Xi_\sigma$ denotes a subset of $\Xi$ associated with the definition of $\sigma$. Elements of $\Lambda_\Phi$, $\Lambda_\Psi$, and $\Lambda_\Xi$ are called \emph{adjoint functions}. Elements of $X$ are callled \emph{complementarity functions}. Elements of the vector $u$ are called \emph{continuation variables}. Elements of $\mu$, $\xi$, $\nu$, $\kappa$, and $\chi$ are called \emph{continuation parameters}. Elements of $\lambda$, $\eta$, and $\sigma$ are called \emph{continuation multipliers}. Elements of $v$ are called \emph{complementarity function modifiers}. The representation in \textsc{coco} of the adjoint conditions is of the form $\pi^\top_{\{\lambda,\eta,\sigma\}}\Lambda(u)=0$, where $\pi_{\{\lambda,\eta,\sigma\}}$ is some permutation of the continuation multipliers, determined during construction, and $\Lambda^\top(u)$ is a corresponding permutation of the columns of $\left(\begin{array}{ccc}\Lambda_\Phi^\top(u) &\Lambda_\Psi^\top(u) & \Lambda_\Xi^\top(u)\end{array}\right)$.
+
+%The vectors $u$, $\lambda$, $\eta$, $\sigma$, and $v$ are said be \emph{initialized} when they are associated with identically-sized numerical vectors $u_0$, $\lambda_0$, $\eta_0$, $\sigma_0$, and $v_0$. Unless otherwise stated, the vectors $\mu$, $\xi$, $\nu$, $\kappa$, and $\chi$ are initialized with $\Psi(u_0)$, $\Xi(u_0)$, $\eta_0$,  $X(\sigma_0,-\Xi_\sigma(u_0),v_0)$, and $v_0$, respectively.
+
+%Consider an indexing of the elements of $\mu$ by integers in the set $\{1,\ldots,n_\Psi\}$, of the elements of $\xi$ by integers in the set $\{n_\Psi+1,\ldots,n_\Psi+n_\Xi\}$, of the elements of $\nu$ by integers in the set $\{n_\Psi+n_\Xi+1,\ldots,n_\Psi+n_\Xi+n_\eta\}$, of the elements of $\kappa$ by integers in the set $\{n_\Psi+n_\Xi+n_\eta+1,\ldots,n_\Psi+n_\Xi+n_\eta+n_\sigma\}$, and of the elements of $\chi$ by integers in the set $\{n_\Psi+n_\Xi+n_\eta+n_\sigma,\ldots,n_\Psi+n_\Xi+n_\eta+n_\sigma+n_v\}$. Then, during continuation, the index sets $\mathbb{I}_\mu\subseteq\{1,\ldots,n_\Psi\}$, $\mathbb{I}_\nu\subseteq\{n_\Psi+n_\Xi+1,\ldots,n_\Psi+n_\Xi+n_\eta\}$, and $\mathbb{I}_\kappa\subseteq\{n_\Psi+n_\Xi+n_\eta+1,\ldots,n_\Psi+n_\Xi+n_\eta+n_\sigma\}$, and $\mathbb{I}_\chi\subseteq\{n_\Psi+n_\Xi+n_\eta+n_\sigma,\ldots,n_\Psi+n_\Xi+n_\eta+n_\sigma+n_v\}$ identify continuation parameters that are fixed and not included among the unknowns whose values are defined implicitly by the continuation problem. Continuation parameters indexed by integers in $\mathbb{I}_\mu\cup\mathbb{I}_\nu\cup\mathbb{I}_\kappa\cup\mathbb{I}_\chi$ are said to be \emph{inactive}. The remaining continuation parameters are said to be \emph{active}. The \emph{dimensional deficit} of the continuation problem is the difference between the number of unknowns and the number of equations, i.e., $n_u+n_\lambda+n_\eta-\left|\mathbb{I}_\mu\right|-\left|\mathbb{I}_\nu\right|-\left|\mathbb{I}_\kappa\right|-\left|\mathbb{I}_\chi\right|-n_\Phi-n_\Lambda$. When this is greater than $0$, it equals the dimension of the unique solution manifold through any regular solution point.
+
+The general form of the continuation problem is implemented in \textsc{coco} in one of two possible ways. In the first, and less common approach, 
+\begin{enumerate}
+\item a call to the \mcode{coco_add_func} constructor defines the function $\Phi$ and initializes $u$;
+\item a second call to \mcode{coco_add_func} defines the function $\Psi$, associates string labels with the elements of $\mu$, and initializes the index set $\mathbb{I}_\mu$;
+\item two consecutive calls to the \mcode{coco_add_adjt} constructor (one for each preceding call to \mcode{coco_add_func}) define the function $\Lambda$ and initalize $\lambda$;
+\item a call to the \mcode{coco_add_comp} constructor defines the function $\Xi$ and initializes $v$;
+\item a second call to \mcode{coco_add_comp} defines the function $\Theta$, associates string labels with the elements of $\nu$, and initializes the index set $\mathbb{I}_\nu$;
+\item Following this initial construction, elements of $\mathbb{I}_\mu\cup\mathbb{I}_\nu$ may be removed without replacement in a call to the \mcode{coco} entry-point function or switched one-to-one with elements in $\{1,\ldots,n_\Psi+n_\Theta\}\setminus\left(\mathbb{I}_\mu\cup\mathbb{I}_\nu\right)$ using the \mcode{coco_xchg_pars} utility.
+\end{enumerate}
+More commonly, the \textsc{coco} constructors are used following a staged approach. At the conclusion of each stage, the \textsc{coco} continuation problem structure encodes an embedded subproblem of the full continuation problem, in terms of some functions $\tilde{\Phi}$, $\tilde{\Psi}$, $\tilde{\Lambda}$, $\tilde{\Xi}$, $\tilde{\Theta}$, vectors $\tilde{u}$, $\tilde{\lambda}$, $\tilde{v}$, $\tilde{\mu}$, $\tilde{\nu}$, initial values $\tilde{u}_0$, $\tilde{\lambda}_0$, $\tilde{v}_0$, and designations $\tilde{\mathbb{I}}_\mu$ and $\tilde{\mathbb{I}}_\nu$. This staged approach to problem construction supports the development of toolboxes dedicated to appending embeddable subproblems to an existing continuation problem structure, and the subsequent coupling of subproblems using \emph{gluing conditions}. Toolbox constructors and specialized constructors like \mcode{coco_add_pars}, \mcode{coco_add_glue}, \mcode{coco_add_functionals}, or \mcode{coco_add_complementarity} encapsulate calls to the \mcode{coco_add_func}, \mcode{coco_add_adjt}, and \mcode{coco_add_comp} constructors.
+
+\section{The Henon map -- \texttt{henon}}
+We illustrate the formulation of a continuation problem of the form \eqref{eq:extended} in the context of continuation of period-N orbits of the Henon map
+\begin{equation}
+\label{eq:henon}
+h(x,p):=\left(\begin{array}{c}x_2+1-ax_1^2\\bx_1\end{array}\right)
+\end{equation}
+in terms of the vector of state variables $x=(x_1,x_2)\in\mathbb{R}^2$ and vector of problem parameters $p=(a,b)\in\mathbb{R}^2$. Specifically, we seek a sequence $x^{(i)}$, $i=1,\ldots,N$, such that
+\begin{equation}
+\label{eq:lhs1}
+x^{(i+1)}-h(x^{(i)},p)=0
+\end{equation}
+and
+\begin{equation}
+\label{eq:lhsN}
+x^{(1)}-h(x^{(N)},p)=0.
+\end{equation}
+The sequence of \textsc{matlab} commands
+\begin{lstlisting}[language=coco-highlight]
+>> henon = @(x,a,b) [ x(2)+1-a*x(1)^2; b*x(1) ];
+>> henon_res = @(x,p,y) y-henon(x, p(1), p(2));
+>> ip = 1:2;
+>> ix = 3:4;
+>> iy = 5:6;
+>> f  = @(u) henon_res(u(ix), u(ip), u(iy));
+\end{lstlisting}
+define the anonymous functions \mcode{henon} to represent the map \eqref{eq:henon}, \mcode{henon_res} to represent the left-hand sides of \eqref{eq:lhs1} and \eqref{eq:lhsN}, and \mcode{f} to represent a corresponding zero function that depends on six elements of the vector of continuation variables. 
+
+For $p=p_0:=(1,0.3)$, a period-4 orbit is approximated by the sequence $x^{(1)}=x^{(1)}_0:=(1.3,0)$, $x^{(2)}=x^{(2)}_0:=(-0.7,0.4)$, $x^{(3)}=x^{(3)}_0:=(1.0,-0.2)$, and $x^{(4)}=x^{(4)}_0:=(-0.1,0.3)$. To continue a family of such orbits, we proceed to append four copies of the zero function $f$ to the continuation problem structure \mcode{prob}, as shown in the following sequence of commands.
+\begin{lstlisting}[language=coco-highlight]
+>> p0 = [ 1.0  0.3 ];
+>> x0 = [ 1.3  0.0; -0.7  0.4; 1.0 -0.2; -0.1  0.3 ];
+>> period = size(x0,1);
+>> prob = coco_prob;
+>> fcn  = @(f) @(p,d,u) deal(d, f(u));
+>> for i=1:period
+     inxt = mod(i, period)+1;
+     prob = coco_add_func(prob, ['henon' num2str(i)], fcn(f), [], 'zero', ...
+       'u0', [p0 x0(i,:) x0(inxt,:)]');
+   end
+\end{lstlisting}
+Here, the anonymous function \mcode{fcn} is used to convert \mcode{f} into a \textsc{coco}-compatible format with input arguments \mcode{p}, \mcode{d}, and \mcode{u}, and output arguments \mcode{d} and \mcode{f(u)}. This conversion is made possible here by the fact that neither of the first input arguments are used in the construction of the function value. Even though \mcode{f} is used repeatedly here, the sequence of calls to the \mcode{coco_add_func} constructor are distinguished by unique function identifiers and appropriate sets of numerical values for the corresponding elements of the vector of continuation variables. At this stage of construction, $\tilde{\Phi}:\mathbb{R}^{24}\rightarrow\mathbb{R}^8$, $\tilde{\Psi}$ is empty, and
+\begin{equation}
+\tilde{u}_0=(p_0,x^{(1)}_0,x^{(2)}_0,p_0,x^{(2)}_0,x^{(3)}_0,p_0,x^{(3)}_0,x^{(4)}_0,p_0,x^{(4)}_0,x^{(1)}_0).
+\end{equation}
+
+In a second stage of construction, we append three monitor functions that evaluate to the first three elements of $u$ and associate the initially inactive continuation parameters labeled by \mcode{'a'}, \mcode{'b'}, and \mcode{'x1'}.
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_pars(prob, 'pars', ip, {'a' 'b'});
+>> prob = coco_add_pars(prob, 'x1', ix(1), 'x1');
+\end{lstlisting}
+Consequently, $\tilde{\Psi}(\tilde{u})=\tilde{u}_{\{1,2,3\}}$ and $\tilde{\mathbb{I}}_\mu=\{1,2,3\}$. We proceed to eliminate the duplication of problem parameters and consecutive orbit points in the vector of continuation variables using the following for-loops.
+\begin{lstlisting}[language=coco-highlight]
+>> for i=2:period
+     uidx = coco_get_func_data(prob, ['henon' num2str(i)], 'uidx');
+     prob = coco_add_glue(prob, ['pglue' num2str(i)], ip, uidx(ip));
+   end
+>> for i=1:period
+     uidx = coco_get_func_data(prob, ['henon' num2str(i)], 'uidx');
+     inxt = mod(i, period)+1;
+     uidxnxt = coco_get_func_data(prob, ['henon' num2str(inxt)], 'uidx');
+     prob = coco_add_glue(prob, ['yglue' num2str(i)], uidx(iy), uidxnxt(ix));
+   end
+\end{lstlisting}
+As this completes the problem construction, it follows that $\Phi:\mathbb{R}^{24}\rightarrow\mathbb{R}^{22}$ and $\Psi:\mathbb{R}^{24}\rightarrow\mathbb{R}^3$ are given by
+\begin{equation}
+\Phi:u\mapsto\left(\begin{array}{c}u_{\{5,6\}}-h(u_3,u_4,u_1,u_2)\\u_{\{11,12\}}-h(u_9,u_{10},u_7,u_8)\\u_{\{17,18\}}-h(u_{15},u_{16},u_{13},u_{14})\\u_{\{23,24\}}-h(u_{21},u_{22},u_{19},u_{20})\\u_{\{7,8\}}-u_{\{1,2\}}\\u_{\{13,14\}}-u_{\{1,2\}}\\u_{\{19,20\}}-u_{\{1,2\}}\\u_{\{9,10\}}-u_{\{5,6\}}\\u_{\{15,16\}}-u_{\{11,12\}}\\u_{\{21,22\}}-u_{\{17,18\}}\\u_{\{3,4\}}-u_{\{23,24\}}\end{array}\right)
+\end{equation}
+and $\Psi:u\mapsto u_{\{1,2,3\}}$ with $\mathbb{I}_\mu=\{1,2,3\}$. Since the dimensional deficit equals $-1$, we must release two inactive continuation parameters in order to obtain a one-dimensional solution manifold. This is accomplished in the following call to the \mcode{coco} entry-point function, in which variations in \mcode{'a'} and \mcode{'x1'} are limited to the range $a\in[0.8,1.2]$.
+\begin{lstlisting}[language=coco-highlight]
+>> bd1 = coco(prob, 'run1', [], 1, {'a' 'x1'}, [0.8 1.2]);
+\end{lstlisting}
+
+The screen output shows the existence of a fold point along the solution branch at $a\approx 0.9125$ that approximately coincides with a branch point. We continue along a secondary branch through the branch point using the following sequence of commands.
+\begin{lstlisting}[language=coco-highlight]
+>> lab   = coco_bd_labs(bd1, 'BP');
+>> prob  = coco_prob;
+>> for i=1:period
+     fid = ['henon' num2str(i)];
+     chart = coco_read_solution(fid, 'run1', lab, 'chart');
+     prob = coco_add_func(prob, fid, fcn(f), [], 'zero', ...
+       'u0', chart.x, 't0', chart.t);
+   end
+>> prob  = coco_add_pars(prob, 'pars', ip, {'a' 'b'});
+>> prob  = coco_add_pars(prob, 'x1', ix(1), 'x1');
+>> for i=2:period
+     uidx = coco_get_func_data(prob, ['henon' num2str(i)], 'uidx');
+     prob = coco_add_glue(prob, ['pglue' num2str(i)], ip, uidx(ip));
+   end
+>> for i=1:period
+     uidx = coco_get_func_data(prob, ['henon' num2str(i)], 'uidx');
+     inxt = mod(i, period)+1;
+     uidxnxt = coco_get_func_data(prob, ['henon' num2str(inxt)], 'uidx');
+     prob = coco_add_glue(prob, ['yglue' num2str(i)], uidx(iy), uidxnxt(ix));
+   end
+>> prob = coco_set(prob, 'cont', 'branch', 'switch');
+>> bd2 = coco(prob, 'run2', [], 1, {'a' 'x1'}, [0.8 1.2]);
+\end{lstlisting}
+Here, the call to \mcode{coco_set} triggers the computation of a candidate continuation direction transversal to the tangent vector given by \mcode{chart.t} and in the plane containing the tangent vector to the secondary branch.
+
+\begin{exercises}
+\item The branch point along the family of period-4 orbits in the example is a period-doubling point along a family of period-2 orbits that coincides with the secondary family of period-4 orbits found in the second run. Construct a suitable continuation problem of the form \eqref{eq:extended} for continuation of period-2 orbits through this point and verify the claim.
+\item Append a monitor function that evaluates to the eigenvalues of the Jacobian with respect to $x$ of the composition $h\circ h$ and use this to characterize the stability of the period-2 orbits found in the previous exercise.
+\item Use the approach of the previous exercise to locate a period-doubling point along the family of period-4 orbits in the example. Hint: use \mcode{coco_add_event} to detect an eigenvalue crossing $-1$.
+\item Branch switch at such a period-doubling point to a secondary branch of period-8 solutions. Hint: construct a corresponding initial solution guess and tangent vector along the primary branch (of period-8 solutions) by duplicating the content of \mcode{chart.x} and \mcode{chart.t} associated with the period-doubling point of period-4 orbits.
+\end{exercises}
+
+\section{Stationary points  -- \texttt{sphere\_optim}}
+Consider the problem of finding stationary points of the function $u\mapsto u_1+u_2+u_3+u_4$ on the unit $3$-sphere in $\mathbb{R}^4$. To this end, consider the Lagrangian
+\begin{equation}
+\label{eq:spherelagr}
+L(u,\mu_\mathrm{sum},\mu_u,\lambda,\eta_\mathrm{sum},\eta_u)=\mu_\mathrm{sum}+\lambda(\|u\|^2-1)+\eta_\mathrm{sum}\left(\sum_{i=1}^4u_i-\mu_\mathrm{sum}\right)+\eta_u^T\cdot(u-\mu_u)
+\end{equation}
+in terms of the Lagrange multipliers $\lambda$, $\eta_\mathrm{sum}$, and $\eta_u$. Necessary conditions for stationary points along the constraint manifold correspond to points $(u,\mu_\mathrm{sum},\mu_u,\lambda,\eta_\mathrm{sum},\eta_u)$ for which $\delta L=0$ for any infinitesimal variations $\delta u$, $\delta\mu_\mathrm{sum}$, $\delta\mu_u$, $\delta\lambda$, $\delta\eta_\mathrm{sum}$, and $\delta\eta_u$. In this case, these conditions take the form
+\begin{equation}
+\label{eq:sphereconstraint}
+\|u\|^2-1=0,\,\sum_{i=1}^4u_i-\mu_\mathrm{sum}=0,\,u-\mu_u=0,\,2\lambda u+\eta_\mathrm{sum}\mathbf{1}+\eta_u=0,
+\end{equation}
+$1-\eta_\mathrm{sum}=0$, and $\eta_u=0$. There are two distinct solutions to these conditions, namely the points $u=\mu_u=\pm\frac{1}{2}\mathbf{1}$, $\mu_\mathrm{sum}=\pm 2$, $\lambda=\mp 1$, $\eta_\mathrm{sum}=1$, and $\eta_u=0$.
+
+Stationary points along the solution manifold may be located using a method of successive continuation\footnote{Kern\'{e}vez, J. and Doedel, E. , ``Optimization in bifurcation problems using a continuation method,'' in \emph{Bifurcation: Analysis, Algorithms, Applications}, Springer, pp.~153--160, 1987.} applied to the continuation problem obtained by combining \eqref{eq:sphereconstraint} with $\eta_\mathrm{sum}-\nu_\mathrm{sum}=0$ and $\eta_u-\nu_u=0$ in terms of the continuation variables $u$, continuation multipliers $(\lambda,\eta_\mathrm{sum},\eta_u)$, and continuation parameters $(\mu_\mathrm{sum},\mu_u,\nu_\mathrm{sum},\nu_u)$. The dimensional deficit of this extended continuation problem equals $5$. We get one-dimensional solution manifolds by designating four of the continuation parameters as inactive. Alternatively, if $\mathbb{I}_\mu=\{1,\ldots,5\}$ and $\mathbb{I}_\nu=\{6,\ldots,10\}$, then the dimensional deficit of the corresponding restricted continuation problem equals $-5$, and we get one-dimensional solution manifolds by designating six of the continuation parameters as active.
+
+Suppose, for example, that $\mu_\mathrm{sum}$, $\mu_{u,\{1,4\}}$, $\nu_\mathrm{sum}$, and $\nu_{u,\{2,3\}}$ are active and $\mu_{u,\{2,3\}}$ and $\nu_{u,\{1,4\}}$ are inactive with $\rho^2:=1-\mu_{u,2}^2-\mu_{u,3}^2>0$, $\rho>0$, and $\nu_{u,1}=\nu_{u,4}=0$. Solutions to the corresponding restricted continuation problem of the form
+\begin{equation}
+\left(u,\mu_\mathrm{sum},\mu_{u},\lambda,\eta_\mathrm{sum},\eta_{u},\nu_\mathrm{sum},\nu_{u}\right)=\left(\mu_u,\sum_{i=1}^4\mu_{u,i},\mu_{u},\lambda,\nu_\mathrm{sum},\nu_{u},\nu_\mathrm{sum},\nu_{u}\right)
+\end{equation}
+are located on three one-dimensional manifolds given by
+\begin{equation}
+\label{eq:1stmfldsphere}
+\mu_{u,1}=\rho\cos\theta,\,\mu_{u,4}=\rho\sin\theta,\,\lambda=\nu_\mathrm{sum}=\nu_{u,2}=\nu_{u,3}=0
+\end{equation}
+and
+\begin{gather}
+\label{eq:2ndmfldsphere1}
+\mu_{u,1}=\mu_{u,4}=\pm\frac{\rho}{\sqrt{2}},\,\lambda=\mp\frac{\nu_\mathrm{sum}}{\sqrt{2}\rho},\\\nu_{u,2}=\nu_\mathrm{sum}\left(\pm\frac{\sqrt{2}\mu_{u,2}}{\rho}-1\right),\,\nu_{u,3}=\nu_\mathrm{sum}\left(\pm\frac{\sqrt{2}\mu_{u,3}}{\rho}-1\right),
+\label{eq:2ndmfldsphere2}
+\end{gather}
+parameterized by $\theta$ and $\nu_\mathrm{sum}$, respectively. The manifolds in \eqref{eq:2ndmfldsphere1} intersect the manifold in \eqref{eq:1stmfldsphere} at the points given by
+\begin{equation}
+\mu_{u,1}=\mu_{u,4}=\pm\frac{\rho}{\sqrt{2}},\,\lambda=\nu_{u,2}=\nu_{u,3}=0,
+\end{equation}
+corresponding to local extrema in the value of $\mu_\mathrm{sum}$ along the first manifold.
+
+Notably, there is a unique point on each of the latter manifolds at which $\eta_\mathrm{sum}=1$. If we consider the restricted continuation problem obtained with $\mu_\mathrm{sum}$, $\mu_{u,\{1,2,4\}}$, and $\nu_{u,\{2,3\}}$ active, and $\mu_{u,3}$, $\nu_{u,\{1,4\}}$, and $\nu_\mathrm{sum}$ inactive with $\nu_{u,1}=\nu_{u,4}=0$ and $\nu_\mathrm{sum}=1$, then solutions are located on the one-dimensional manifolds given by
+\begin{gather}
+\label{eq:3rdmfldsphere1}
+\mu_{u,1}=\mu_{u,4}=\pm\frac{\rho}{\sqrt{2}},\,\mu_{u,2}^2=1-\rho^2-\mu_{u,3}^2,\,\lambda=\mp\frac{1}{\sqrt{2}\rho}\\\nu_{u,2}=\pm\frac{\sqrt{2}\mu_{u,2}}{\rho}-1,\,\nu_{u,3}=\pm\frac{\sqrt{2}\mu_{u,3}}{\rho}-1,
+\label{eq:3rdmfldsphere2}
+\end{gather}
+parameterized by $\rho$. 
+
+There is a unique point along each of the tertiary manifolds in \eqref{eq:3rdmfldsphere1}-\eqref{eq:3rdmfldsphere2} at which $\eta_{u,2}=0$, obtained with
+\begin{equation}
+\rho=\sqrt{\frac{2}{3}(1-\mu_{u,3}^2)},\,\mu_{u,2}=\pm\sqrt{\frac{1}{3}(1-\mu_{u,3}^2)}.
+\end{equation}
+If we consider the restricted continuation problem obtained with $\mu_\mathrm{sum}$, $\mu_u$, and $\nu_{u,3}$ active, and $\nu_{u,\{1,2,4\}}$, and $\nu_\mathrm{sum}$ inactive with $\nu_{u,1}=\nu_{u,2}=\nu_{u,4}=0$ and $\nu_\mathrm{sum}=1$, then solutions are located on the one-dimensional manifolds given by
+\begin{gather}
+\label{eq:4rdmfldsphere1}
+\mu_{u,1}=\mu_{u,2}=\mu_{u,4}=\pm\frac{\rho}{\sqrt{2}},\,\mu_{u,3}^2=1-\frac{3}{2}\rho^2,\,\lambda=\mp\frac{1}{\sqrt{2}\rho},\,\nu_{u,3}=\pm\frac{\sqrt{2}\mu_{u,3}}{\rho}-1,
+\end{gather}
+parameterized by $\rho$. Notably, the points along each of these manifolds with $\eta_{u,3}=0$ coincide with the stationary points found previously
+
+We proceed to implement in \textsc{coco} a corresponding continuation problem of the form in \eqref{eq:stationary} by making repeated use of the \mcode{coco_add_func} and \mcode{coco_add_adjt} constructors. We initialize the continuation problem structure and two useful cell arrays in the following commands.
+\begin{lstlisting}[language=coco-highlight]
+ >> prob = coco_prob;
+ >> fcn1 = { @sphere, @sphere_du, @sphere_dudu };
+ >> fcn2 = { @comb, @comb_du, @comb_dudu };
+\end{lstlisting}
+ The function handles \mcode{@sphere}, \mcode{@sphere_du}, and so on point to the \textsc{coco} compatible encodings shown below.
+\begin{lstlisting}[language=coco-highlight]
+function [data, f] = sphere(prob, data, u)
+f = u(1)^2 + u(2)^2 + u(3)^2 + u(4)^2 - 1;
+end
+
+function [data, J] = sphere_du(prob, data, u)
+J = [2*u(1), 2*u(2), 2*u(3), 2*u(4)];
+end
+
+function [data, dJ] = sphere_dudu(prob, data, u)
+
+dJ = zeros(1,4,4);
+dJ(1,1,1) = 2;
+dJ(1,2,2) = 2;
+dJ(1,3,3) = 2;
+dJ(1,4,4) = 2;
+
+end
+
+function [data, f] = comb(prob, data, u)
+f = u(1)+u(2)+u(3)+u(4);
+end
+
+function [data, J] = comb_du(prob, data, u)
+J = [1, 1, 1, 1];
+end
+
+function [data, dJ] = comb_dudu(prob, data, u)
+dJ = zeros(1,4,4);
+end
+\end{lstlisting}
+In the first stage of construction, we define a zero function and initialize part of the vector of continuation variables, as shown below.
+\begin{lstlisting}[language=coco-highlight]
+>> prob1 = coco_add_func(prob, 'sphere', fcn1{:}, [], 'zero', ...
+      'u0', [1 0 0 0]);
+\end{lstlisting}
+At this point, $\tilde{\Phi}:\mathbb{R}^4\rightarrow\mathbb{R}$ is defined by $\tilde{\Phi}:\tilde{u}\mapsto\|\tilde{u}\|^2-1$, $\tilde{\Psi}$ is empty, and $\tilde{u}_0=(1,0,0,0)$. In the second stage of construction, the call 
+\begin{lstlisting}[language=coco-highlight]
+>> prob1 = coco_add_func(prob1, 'sum', fcn2{:}, [], 'inactive', ...
+      'sum', 'uidx', 1:4);
+\end{lstlisting}
+results in no change to $\tilde{u}$ or $\tilde{\Phi}$, whereas now $\tilde{\Psi}:\mathbb{R}^4\rightarrow\mathbb{R}$ is defined by $\tilde{\Psi}(\tilde{u})=\tilde{u}_1+\tilde{u}_2+\tilde{u}_3+\tilde{u}_4$. This function is associated with an initially inactive continuation parameter with string label \mcode{'sum'}.
+
+In the third and fourth stages of construction, shown below, we use the \mcode{coco_add_pars} special-purpose wrapper to append four more monitor functions associated with two initially inactive and two initially active continuation parameters.
+\begin{lstlisting}[language=coco-highlight]
+>> prob1 = coco_add_pars(prob1, 'pars1', [2 3], {'u2' 'u3'}, 'inactive');
+>> prob1 = coco_add_pars(prob1, 'pars2', [1 4], {'u1' 'u4'}, 'active');
+\end{lstlisting}
+Each call passes the arguments to an encapsulated call to \mcode{coco_add_func} with function given by the identity map and its derivatives, and with \mcode{'uidx'} equal to \mcode{[2 3]} and \mcode{[1 4]}, respectively. As this concludes the construction of zero or monitor functions, we conclude that $\Phi:\mathbb{R}^4\rightarrow\mathbb{R}$ and $\Psi:\mathbb{R}^4\rightarrow\mathbb{R}^5$, where
+\begin{equation}
+\Phi:u\mapsto\|u\|^2-1,\,\Psi:u\mapsto\left(\begin{array}{c}u_1+u_2+u_3+u_4\\u_2\\u_3\\u_1\\u_4\end{array}\right),
+\end{equation}
+$u_0=(1,0,0,0)$, and $\mathbb{I}_\mu=\{1,2,3\}$.
+
+We proceed to append adjoint function objects associated with each of the calls to \mcode{coco_add_func}. Specifically, the call
+\begin{lstlisting}[language=coco-highlight]
+>> prob1 = coco_add_adjt(prob1, 'sphere');
+\end{lstlisting}
+results in $\tilde{\Lambda}_\Phi:u\mapsto\left(\begin{array}{cccc}2u_1 & 2u_2 & 2u_3 & 2u_4\end{array}\right)$ and $\tilde{\lambda}_{\Phi,0}=0$.
+Similarly, the call
+\begin{lstlisting}[language=coco-highlight]
+>> prob1 = coco_add_adjt(prob1, 'sum', 'd.sum', 'aidx', 1:4);
+\end{lstlisting}
+results in 
+\begin{equation}
+\tilde{\Lambda}_\Psi:u\mapsto\left(\begin{array}{cccc}1 & 1 & 1 & 1\end{array}\right)
+\end{equation}
+and $\tilde{\lambda}_{\Psi,0}=0$. The corresponding element of $\nu$ is here associated with the string label \mcode{'d.sum'}. In each of the two following calls to \mcode{coco_add_adjt}, the elements of the identity matrix are distributed among the two new rows appended to $\Lambda$ according to the column indices indicated by the flag \mcode{'aidx'}.
+\begin{lstlisting}[language=coco-highlight]
+>> prob1 = coco_add_adjt(prob1, 'pars1', {'d.u2' 'd.u3'}, 'aidx', [2 3]);
+>> prob1 = coco_add_adjt(prob1, 'pars2', {'d.u1' 'd.u4'}, 'aidx', [1 4]);
+\end{lstlisting}
+while the corresponding continuation multipliers are initialized to $0$. Since this completes the construction of adjoint functions, it follows that
+\begin{equation}
+\Lambda_\Phi:u\mapsto\left(\begin{array}{cccc}2u_1 & 2u_2 & 2u_3 & 2u_4\end{array}\right),\,\Lambda_\Psi:u\mapsto\left(\begin{array}{cccc}1 & 1 & 1 & 1\\0 & 1 & 0 & 0\\0 & 0 & 1 & 0\\1 & 0 & 0 & 0\\0 & 0 & 0 & 1\end{array}\right)
+\end{equation}
+$\lambda_{\Phi,0}=0$, $\lambda_{\Psi,0}=0$, and $\mathbb{I}_\nu=\{6,7,8,9,10\}$. The second of the two commands below is then equivalent to the computation of the manifold in \eqref{eq:1stmfldsphere} with $\rho=1$.
+\begin{lstlisting}[language=coco-highlight]
+>> cont_args = { 1, { 'sum' 'd.sum' 'd.u2' 'd.u3' }, [1 2] };
+>> bd1 = coco(prob1, 'sphere1', [], cont_args{:});
+\end{lstlisting}
+Continuation detects a branch point coincident with a local extremum in the continuation parameter \mcode{'sum'} when this equals $\sqrt{2}$, i.e., for $\theta=\pi/4$ in the notation of \eqref{eq:1stmfldsphere}. 
+
+We proceed to reconstruct the continuation problem, using the branch point as the initial solution guess and by providing the tangent vector along the primary branch to enable a computation of a candidate direction of continuation transversal to this tangent vector and in a plane that contains the tangent vector to the secondary branch\footnote{At a generic branch point, \textsc{coco} stores a second unit vector that is perpendicular to the tangent vector to the solution manifold, such that the two vectors span a plane that  approximately contains also the tangent vector to the second branch through the branch point. This second unit vector may be extracted using the \mcode{coco_get_chart_data} utility from the \mcode{'lsol'} field of the chart data array stored with the solution file and then provided directly to \mcode{coco_add_func} using the \mcode{'t0'} flag. Beginning with the January 2025 release, this usage is deprecated in favor of a computation triggered by setting the \mcode{'branch'} property of \mcode{'cont'} to \mcode{'switch'} as shown here.}. The following five commands reconstruct the zero and monitor functions:
+\begin{lstlisting}[language=coco-highlight]
+>> chart = coco_read_solution('sphere', 'sphere1', lab, 'chart');
+>> prob2 = coco_add_func(prob, 'sphere', fcn1{:}, [], 'zero', ...
+     'u0', chart.x,  't0', chart.t);
+>> prob2 = coco_add_func(prob2, 'sum', fcn2{:}, [], 'inactive', ...
+     'sum', 'uidx', 1:4);
+>> prob2 = coco_add_pars(prob2, 'pars1', [2 3], {'u2' 'u3'}, 'inactive');
+>> prob2 = coco_add_pars(prob2, 'pars2', [1 4], {'u1' 'u4'}, 'active');
+\end{lstlisting}
+Here, the call to the \mcode{coco_read_solution} utility extracts the portion of the chart data array associated with the function identifier \mcode{'sphere'} from the branch point solution file. The \mcode{x} field of the \mcode{chart} variable reinitializes the continuation variables in the first stage of construction. The \mcode{t} field of \mcode{chart} provides the corresponding components of the tangent vector along the primary branch.
+
+The reconstruction of the adjoint functions shown below relies on repeated calls to the \mcode{coco_read_adjoint} utility to extract portions of the chart data array associated with the different function identifiers from the branch point solution file.
+\begin{lstlisting}[language=coco-highlight]
+>> chart = coco_read_adjoint('sphere', 'sphere1', lab, 'chart');
+>> prob2 = coco_add_adjt(prob2, 'sphere', 'l0', chart.x, 'tl0', chart.t);
+>> chart = coco_read_adjoint('sum', 'sphere1', lab, 'chart');
+>> prob2 = coco_add_adjt(prob2, 'sum', 'd.sum', 'aidx', (1:4)', ...
+     'l0', chart.x, 'tl0', chart.t);
+>> chart = coco_read_adjoint('pars1', 'sphere1', lab, 'chart');
+>> prob2 = coco_add_adjt(prob2, 'pars1', {'d.u2', 'd.u3'}, 'aidx', [2; 3], ...
+     'l0', chart.x, 'tl0', chart.t);
+>> chart = coco_read_adjoint('pars2', 'sphere1', lab, 'chart');
+>> prob2 = coco_add_adjt(prob2, 'pars2', {'d.u1', 'd.u4'}, 'aidx', [1; 4], ...
+     'l0', chart.x, 'tl0', chart.t);
+\end{lstlisting}  
+The third of the three commands below is then equivalent to the computation along the manifold in \eqref{eq:2ndmfldsphere1}-\eqref{eq:2ndmfldsphere2} with $\rho=1$, $\mu_{u,1}=\mu_{u,4}=1/\sqrt{2}$, and $\mu_{u,2}=\mu_{u,3}=0$.
+\begin{lstlisting}[language=coco-highlight]
+>> prob2 = coco_set(prob2, 'cont', 'branch', 'switch');
+>> cont_args = { 1,  { 'd.sum' 'sum' 'd.u2' 'd.u3' }, { [0 1], [-2 2] } };
+>> bd2 = coco(prob2, 'sphere2', [], cont_args{:});
+\end{lstlisting}
+Continuation terminates once \mcode{'d.sum'} equals $1$, at which point \mcode{'d.u2'} and \mcode{'d.u3'} both equal $-1$. The following sequence of commands reconstructs the continuation problem and initializes the continuation variables and continuation multipliers using information from this terminal solution point.
+\begin{lstlisting}[language=coco-highlight]
+>> lab   = coco_bd_labs(bd2, 'EP');
+>> chart = coco_read_solution('sphere', 'sphere2', lab(2), 'chart');
+>> prob3 = coco_add_func(prob, 'sphere', fcn1{:}, [], 'zero', ...
+      'u0', chart.x);
+>> prob3 = coco_add_func(prob3, 'sum', fcn2{:}, [], 'inactive', ...
+      'sum', 'uidx', 1:4);
+>> prob3 = coco_add_pars(prob3, 'pars1', [2 3], {'u2' 'u3'}, 'inactive');
+>> prob3 = coco_add_pars(prob3, 'pars2', [1 4], {'u1' 'u4'}, 'active');
+>> chart = coco_read_adjoint('sphere', 'sphere2', lab(2), 'chart');
+>> prob3 = coco_add_adjt(prob3, 'sphere', 'l0', chart.x);
+>> chart = coco_read_adjoint('sum', 'sphere2', lab(2), 'chart');
+>> prob3 = coco_add_adjt(prob3, 'sum', 'd.sum', 'aidx', 1:4, ...
+      'l0', chart.x);
+>> chart = coco_read_adjoint('pars1', 'sphere2', lab(2), 'chart');
+>> prob3 = coco_add_adjt(prob3, 'pars1', {'d.u2' 'd.u3'}, ...
+      'aidx', [2 3], 'l0', chart.x);
+>> chart = coco_read_adjoint('pars2', 'sphere2', lab(2), 'chart');
+>> prob3 = coco_add_adjt(prob3, 'pars2', {'d.u1' 'd.u4'}, ...
+      'aidx', [1 4], 'l0', chart.x);
+\end{lstlisting}
+In this case, we allow for default initialization of the tangent vector, since there is a unique solution manifold of the restricted continuation problem through the initial point. In the next command, the \mcode{coco_add_event} utility is used to introduce a special point, designated by the label \mcode{'OPT'} whenever \mcode{'d.u2'} equals $0$. 
+\begin{lstlisting}[language=coco-highlight]
+>> prob3 = coco_add_event(prob3, 'OPT', 'd.u2', 0);
+\end{lstlisting}
+The second of the two commands below is then equivalent to the computation along the manifold in \eqref{eq:3rdmfldsphere1}-\eqref{eq:3rdmfldsphere2} with $\mu_{u,1}=\mu_{u,4}=\rho/\sqrt{2}$ and $\mu_{u,3}=0$.
+\begin{lstlisting}[language=coco-highlight]
+>> cont_args = {1, {'d.u2' 'sum' 'u2' 'd.u3'}, {[] [-2 2]}};
+>> bd3 = coco(prob3, 'sphere3', [], cont_args{:});
+\end{lstlisting}
+Continuation results in a unique point with \mcode{'d.u2'} equal to $0$, at which \mcode{'sum'} equals $\sqrt{3}$, \mcode{'u2'} equals $1/\sqrt{3}$, and \mcode{'d.u3'} equals $-1$.
+
+We conclude our analysis by again reconstructing the continuation problem, this time initializing the continuation variables and continuation multipliers using solution data from the \mcode{'OPT'} point in the previous run.
+\begin{lstlisting}[language=coco-highlight]
+>> lab   = coco_bd_labs(bd3, 'OPT');
+>> chart = coco_read_solution('sphere', 'sphere3', lab, 'chart');
+>> prob4 = coco_add_func(prob, 'sphere', fcn1{:}, [], 'zero', ...
+      'u0', chart.x);
+>> prob4 = coco_add_func(prob4, 'sum', fcn2{:}, [], 'inactive', ...
+      'sum', 'uidx', 1:4);
+>> prob4 = coco_add_pars(prob4, 'pars1', [2 3], {'u2' 'u3'}, 'inactive');
+>> prob4 = coco_add_pars(prob4, 'pars2', [1 4], {'u1' 'u4'}, 'active');
+>> chart = coco_read_adjoint('sphere', 'sphere3', lab, 'chart');
+>> prob4 = coco_add_adjt(prob4, 'sphere', 'l0', chart.x);
+>> chart = coco_read_adjoint('sum', 'sphere3', lab, 'chart');
+>> prob4 = coco_add_adjt(prob4, 'sum', 'd.sum', 'aidx', 1:4, ...
+      'l0', chart.x);
+>> chart = coco_read_adjoint('pars1', 'sphere3', lab, 'chart');
+>> prob4 = coco_add_adjt(prob4, 'pars1', {'d.u2' 'd.u3'}, ...
+      'aidx', [2 3], 'l0', chart.x);
+>> chart = coco_read_adjoint('pars2', 'sphere3', lab, 'chart');
+>> prob4 = coco_add_adjt(prob4, 'pars2', {'d.u1' 'd.u4'}, ...
+      'aidx', [1 4], 'l0', chart.x);
+\end{lstlisting}      
+This encoding again allow for default initialization of the tangent vector, since there is a unique solution manifold of the restricted continuation problem through the initial point. In the next command, the \mcode{coco_add_event} utility is used to introduce a special point, designated by the label \mcode{'OPT'} whenever \mcode{'d.u3'} equals $0$. 
+\begin{lstlisting}[language=coco-highlight]
+>> prob4 = coco_add_event(prob4, 'OPT', 'd.u3', 0);
+\end{lstlisting}
+The second of the two commands below is then equivalent to the computation along the manifold in \eqref{eq:4rdmfldsphere1} with $\mu_{u,1}=\mu_{u,2}=\mu_{u,4}=\rho/\sqrt{2}$.
+\begin{lstlisting}[language=coco-highlight]
+>> cont_args = {1, {'d.u3' 'sum' 'u2' 'u3'}, {[] [-2 2]}};
+>> coco(prob4, 'sphere4', [], cont_args{:});
+\end{lstlisting}
+Continuation results in a unique point with \mcode{'d.u3'} equal to $0$, at which \mcode{'sum'} equals $2$, and \mcode{'u2'} and \mcode{'u3'} both equal $1/2$.\\
+\medskip
+
+\begin{exercises}
+\item Repeat the analysis in this section for a different initial designation of continuation parameters to $\mathbb{I}_\mu$ and a different permutation of the order in which the corresponding complementary continuation parameters are driven to $0$.
+\item Consider the problem of finding stationary points in $\mathbb{R}^3$ of the function $u\mapsto u_2$ on the manifold defined by $u_2-u_1(u_3-u_1^2)=0$. Repeat the analysis in this section and verify your theoretical predictions using \textsc{coco}.
+\item Visualize different projections of the solution manifolds considered in the search for stationary points on the sphere and in the previous exercise.
+\item Use the methodology described here and in the \mcode{'coll'} and \mcode{'po'} tutorials to implement the examples in Li, M.~\& Dankowicz, H., ``Staged Construction of Adjoints for Constrained Optimization of Integro-Differential Boundary-Value Problems,'' \emph{SIAM J.~Applied Dynamical Systems} \textbf{17(2)}, pp.~1117--1151, 2018.
+\end{exercises}
+
+\section{Karush-Kuhn-Tucker conditions -- \texttt{linode\_optim}}
+Consider the problem of finding local minima of the function $(x(t),k,f,\theta)\mapsto x_2(0)$ along a manifold of periodic solutions of the dynamical system
+\begin{equation}
+\dot{x}_1=x_2,\,\dot{x}_2=-x_2-kx_1+f\cos (t+\theta)
+\end{equation}
+with period $2\pi$ and restricted to the feasible region $f\leq f_0$. Since such periodic solutions are given by
+\begin{equation}
+\label{eq: linodeexplicit}
+x_1(t)=f\frac{(k-1)\cos(t+\theta)+\sin(t+\theta)}{(k-1)^2+1},\,x_2(t)=f\frac{\cos(t+\theta)+(1-k)\sin(t+\theta)}{(k-1)^2+1},
+\end{equation}
+local minima are obtained by analysis of the Lagrangian
+\begin{align}
+&L\left(k,f,\theta,\mu_v,\mu_k,\mu_f,\mu_\theta,\sigma_f,\eta_v,\eta_k,\eta_f,\eta_\theta\right)=\mu_v+ \eta_v\left(f\frac{\cos\theta+(1-k)\sin\theta}{(k-1)^2+1}-\mu_v\right)\nonumber\\
+&\qquad+\eta_k(k-\mu_k)+\eta_f(f-\mu_f)+\eta_\theta(\theta-\mu_\theta)+\sigma_f(f-f_0),
+\end{align}
+from which we obtain the Karush-Kuhn-Tucker conditions
+\begin{gather}
+\label{eq:KKTfirst}
+f\frac{\cos\theta+(1-k)\sin\theta}{(k-1)^2+1}-\mu_v=0,\\
+k-\mu_k=f-\mu_f=\theta-\mu_\theta=0,\\
+f\eta_v\frac{k(k-2)\sin\theta+2(1-k)\cos\theta}{\left((k-1)^2+1\right)^2}+\eta_k=0,\\
+\eta_v\frac{\cos\theta+(1-k)\sin\theta}{(k-1)^2+1}+\eta_f+\sigma_f=0,\\
+f\eta_v\frac{(1-k)\cos\theta-\sin\theta}{(k-1)^2+1}+\eta_\theta=0,
+\label{eq:KKTlast}
+\end{gather}
+with $\eta_v=1$, $\eta_k=\eta_f=\eta_\theta=0$, and the linear complementarity condition $\sigma_f(f-f_0)=0$ on $\{\sigma_f\ge 0,\,f\le f_0\}$. These imply that the local minimum is located at
+\begin{gather}
+\mu_k=k=1,\,\mu_f=f=f_0,\,\mu_\theta=\theta=\pi,\,\mu_v=-f_0,\,\sigma_f=1,\,\eta_k=\eta_f=\eta_\theta=0,\eta_v=1.
+\end{gather}
+Since the value of $x_2(0)$ is linear in $f$, it follows that this is, in fact, a global minimum in the feasible region $f\le f_0$.
+
+We may arrive at this minimum using a method of successive continuation applied to the continuation problem obtained by combining \eqref{eq:KKTfirst}-\eqref{eq:KKTlast} with $\eta_k-\nu_k=0$, $\eta_f-\nu_f=0$, $\eta_\theta-\nu_\theta=0$, $\eta_v-\nu_v=0$ and
+\begin{equation}
+\label{eq:ncf1}
+\sqrt{\sigma_f^2+(f-f_0)^2}-\sigma_f+f-f_0-\kappa_f=0
+\end{equation}
+in terms of the original continuation variables $(k,f,\theta)$, original continuation parameters $(\mu_k,\mu_f,\mu_\theta)$, continuation multipliers $(\eta_k,\eta_f,\eta_\theta,\eta_v,\sigma_f)$, and complementary continuation parameters $(\nu_k,\nu_f,\nu_\theta,\nu_v,\kappa_f)$. With the substitution of \eqref{eq:ncf1} for the complementarity condition, the local minimum is obtained only when $\kappa_f=0$.
+
+
+The successive continuation technique assumes that an initial solution to the continuation problem may be obtained with all zero continuation multipliers. Here, this can be accomplished with $f$ both inside and outside the feasible region.
+
+For example, with $f<f_0$ and $\sigma_f=0$ initially, it follows that $\kappa_f=0$ initially, and that $\kappa_f=\sigma_f=0$ as long as $f$ remains smaller than $f_0$. Assuming $\mu_v$, $\mu_k$, $\nu_v$, $\nu_f$, and $\nu_\theta$ active and $\mu_f$, $\mu_\theta$, and $\nu_k$ inactive with $\mu_\theta\ne 0,\pi$ and $\nu_k=0$, solutions to the corresponding restricted continuation problem are obtained on one of the three one-dimensional manifolds
+\begin{equation}
+\label{mfld1}
+\mu_v=\mu_f\frac{\cos\mu_\theta+(1-\mu_k)\sin\mu_\theta}{(\mu_k-1)^2+1},\,\nu_v=\nu_f=\nu_\theta=0,
+\end{equation}
+\begin{equation}
+\label{mfld2}
+\mu_v=\mu_f\cos^2\frac{\mu_\theta}{2},\,\mu_k=1-\tan\frac{\mu_\theta}{2},\,\nu_\theta=\frac{\nu_v\mu_f}{2}\sin\mu_\theta,\,\nu_f=-\nu_v\cos^2\frac{\mu_\theta}{2},
+\end{equation}
+or
+\begin{equation}
+\label{mfld3}
+\mu_v=-\mu_f\sin^2\frac{\mu_\theta}{2},\,\mu_k=1+\cot\frac{\mu_\theta}{2},\,\nu_\theta=\frac{\nu_v\mu_f}{2}\sin\mu_\theta,\,\nu_f=\nu_v\sin^2\frac{\mu_\theta}{2}.
+\end{equation}
+The manifold in \eqref{mfld1} intersects the manifolds in \eqref{mfld2} and \eqref{mfld3} at the points
+\begin{equation}
+\mu_v=\mu_f\cos^2\frac{\mu_\theta}{2},\,\mu_k=1-\tan\frac{\mu_\theta}{2},\,\nu_v=\nu_f=\nu_\theta=0
+\end{equation}
+and
+\begin{equation}
+\mu_v=-\mu_f\sin^2\frac{\mu_\theta}{2},\,\mu_k=1+\cot\frac{\mu_\theta}{2},\,\nu_v=\nu_f=\nu_\theta=0,
+\end{equation}
+respectively, corresponding to local extrema in the value of $\mu_v$ along the first manifold.
+
+Notably, there is a unique point on each of the latter manifolds where $\eta_v=1$. If we consider the restricted continuation problem obtained with $\mu_v$, $\mu_k$, $\mu_\theta$, $\nu_f$ and $\nu_\theta$ active and $\mu_f$, $\nu_k$, and $\nu_v$ inactive, with $\nu_k=0$ and $\nu_v=1$, then solutions are located on the one-dimensional manifolds
+\begin{equation}
+\label{eq:mfld4}
+\mu_v=\mu_f\cos^2\frac{\mu_\theta}{2},\,\mu_k=1-\tan\frac{\mu_\theta}{2},\,\nu_f=-\cos^2\frac{\mu_\theta}{2},\,\nu_\theta=\frac{\mu_f}{2}\sin\mu_\theta
+\end{equation}
+and
+\begin{equation}
+\label{eq:mfld5}
+\mu_v=-\mu_f\sin^2\frac{\mu_\theta}{2},\,\mu_k=1+\cot\frac{\mu_\theta}{2},\,\nu_f=\sin^2\frac{\mu_\theta}{2},\,\nu_\theta=\frac{\mu_f}{2}\sin\mu_\theta.
+\end{equation}
+We reach a point with $\nu_\theta=0$ along the first manifold when $\mu_\theta=2n\pi$ for some integer $n$. Similarly, we reach a point with $\nu_\theta=0$ along the second manifold when $\mu_\theta=(2n+1)\pi$ for some integer $n$. Indeed, if we consider the restricted continuation problem obtained with $\mu_v$, $\mu_k$, $\mu_f$, $\mu_\theta$, and $\nu_f$ active and $\nu_k$, $\nu_\theta$, and $\nu_v$ inactive and equal to $0$, $0$ and $1$, respectively, then solutions are located on the one-dimensional manifolds
+\begin{equation}
+\mu_v=\mu_f,\,\mu_k=1,\,\mu_\theta=2n\pi,\,\nu_f=-1
+\end{equation}
+and
+\begin{equation}
+\mu_v=-\mu_f,\,\mu_k=1,\,\mu_\theta=(2n+1)\pi,\,\nu_f=1,
+\end{equation}
+which intersect the manifolds in \eqref{eq:mfld4} and \eqref{eq:mfld5}, respectively. Notably, $\nu_f$ is constant along each manifold and $\nu_f=0$ cannot be reached under variations in $\mu_f$. In fact, as $\mu_f\to f_0$, the solution limits on the singularity at $\sigma_f=f-f_0=0$ of the left-hand side of \eqref{eq:ncf1}.
+
+Alternatively, suppose that initially $f>f_0$ and $\sigma_f=0$, from which it follows that $\kappa_f$ must be initially positive. Now suppose that $\mu_v$, $\mu_k$, $\mu_f$, $\nu_v$, and $\nu_\theta$ are active and $\mu_\theta$, $\nu_k$, $\nu_f$, and $\kappa_f$ are inactive with $\mu_\theta\ne 0,\pi$ and $\nu_k=\nu_f=0$. This time, solutions to the corresponding restricted continuation problem are located on one of the three one-dimensional manifolds
+\begin{equation}
+\label{Imfld1}
+\mu_v=\mu_f\frac{\cos\mu_\theta+(1-\mu_k)\sin\mu_\theta}{(\mu_k-1)^2+1},\,\mu_f=f_0+\frac{\kappa_f}{2},
+\,\nu_v=\nu_\theta=\sigma_f=0
+\end{equation}
+\begin{equation}
+\label{Imfld2}
+\mu_v=\mu_f\cos^2\frac{\mu_\theta}{2},\,\mu_k=1-\tan\frac{\mu_\theta}{2},\,\nu_\theta=\frac{\nu_v\mu_f}{2}\sin\mu_\theta,\,\sigma_f=-\nu_v\cos^2\frac{\mu_\theta}{2},
+\end{equation}
+or
+\begin{equation}
+\label{Imfld3}
+\mu_v=-\mu_f\sin^2\frac{\mu_\theta}{2},\,\mu_k=1+\cot\frac{\mu_\theta}{2},\,\nu_\theta=\frac{\nu_v\mu_f}{2}\sin\mu_\theta,\,\sigma_f=\nu_v\sin^2\frac{\mu_\theta}{2},
+\end{equation}
+where
+\begin{equation}
+\label{eq:ncf}
+\kappa_f=\sqrt{\sigma_f^2+(\mu_f-f_0)^2}-\sigma_f+\mu_f-f_0
+\end{equation}
+along each of the latter manifolds.
+
+The manifold in \eqref{Imfld1} intersects the manifolds in \eqref{Imfld2} and \eqref{Imfld3} at the points
+\begin{equation}
+\mu_v=\mu_f\cos^2\frac{\mu_\theta}{2},\,\mu_k=1-\tan\frac{\mu_\theta}{2},\,\mu_f=f_0+\frac{\kappa_f}{2},\,\nu_v=\nu_\theta=\sigma_f=0
+\end{equation}
+and
+\begin{equation}
+\mu_v=-\mu_f\sin^2\frac{\mu_\theta}{2},\,\mu_k=1+\cot\frac{\mu_\theta}{2},\,\mu_f=f_0+\frac{\kappa_f}{2},\nu_v=\nu_\theta=\sigma_f=0,
+\end{equation}
+respectively, corresponding to local extrema in the value of $\mu_v$ along the first manifold. Notably, there is a unique point on each of the latter manifolds where $\eta_v=1$. If we consider the restricted continuation problem obtained with $\mu_v$, $\mu_k$, $\mu_f$, $\mu_\theta$ and $\nu_\theta$ active, $\kappa_f$ inactive, and $\nu_k$, $\nu_f$ and $\nu_v$ inactive and equal to $0$, $0$, and $1$, respectively, then solutions are located on the one-dimensional manifolds
+\begin{equation}
+\mu_v=\mu_f\cos^2\frac{\mu_\theta}{2},\,\mu_k=1-\tan\frac{\mu_\theta}{2},\,\nu_\theta=\frac{\mu_f}{2}\sin\mu_\theta,\,\sigma_f=-\cos^2\frac{\mu_\theta}{2}
+\end{equation}
+and
+\begin{equation}
+\mu_v=-\mu_f\sin^2\frac{\mu_\theta}{2},\,\mu_k=1+\cot\frac{\mu_\theta}{2},\,\nu_\theta=\frac{\mu_f}{2}\sin\mu_\theta,\,\sigma_f=\sin^2\frac{\mu_\theta}{2},
+\end{equation}
+with $\kappa_f$ given in~\eqref{eq:ncf}. We reach a point with $\nu_\theta=0$ along the first manifold when $\mu_\theta=2n\pi$ for some integer $n$. Similarly, we reach a point with $\nu_\theta=0$ along the second manifold when $\mu_\theta=(2n+1)\pi$ for some integer $n$. Indeed, if we consider the restricted continuation problem obtained with $\mu_v$, $\mu_k$, $\mu_\theta$, $\mu_f$ and $\kappa_f$ active and $\nu_k$, $\nu_f$, $\nu_\theta$ and $\nu_v$ inactive and equal to $0$, $0$, $0$, and $1$, respectively, then solutions are located on the one-dimensional manifolds
+\begin{equation}
+\mu_v=\mu_f,\,\mu_k=1,\,\mu_\theta=2n\pi,\,\sigma_f=-1
+\end{equation}
+and
+\begin{equation}
+\mu_v=-\mu_f,\,\mu_k=1,\,\mu_\theta=(2n+1)\pi,\,\sigma_f=1,
+\end{equation}
+with $\kappa_f$ again given in~\eqref{eq:ncf}. We reach a point with $\kappa_f=0$ along the second manifold when $\mu_f=f_0$, consistent with the earlier analysis.
+
+We proceed to implement the extended continuation problem in \textsc{coco} in the case that $f_0=1$. In this example, we make use of a set of automatic differentiation routines included with the \textsc{symcoco} package\footnote{The \textsc{symcoco} package is included with \textsc{coco}, courtesy of Jan Sieber, since the March 2020 release.}. Specifically, by first adding the \mcode{coco/contributed/symcoco} directory to the \textsc{matlab} path and then executing the commands
+\begin{lstlisting}[language=coco-highlight]
+>> u = sym('u',[3,1]);
+>> fu = u(2)*(cos(u(3))+(1-u(1))*sin(u(3)))/((u(1)-1)^2+1);
+>> sco_sym2funcs(fu, {u}, {'u'}, 'filename', 'sym_linode');
+\end{lstlisting}
+we generate a \textsc{symcoco}-compatible encoding of the function
+\begin{equation}
+u\mapsto f(u)=u_2\frac{\cos u_3+(1-u_1)\sin u_3}{(u_1-1)^2+1}.
+\end{equation}
+In terms of the variable
+\begin{lstlisting}[language=coco-highlight]
+>> Fu = sco_gen(@sym_linode);
+\end{lstlisting}
+function handles to the functions $u\mapsto f(u)$, $u\mapsto Df(u)$, and $D^2f(u)$ are returned by the commands \mcode{Fu('')}, \mcode{Fu('u')}, and \mcode{Fu(\{'u','u'\})}, respectively. We again call upon the anonymous function
+\begin{lstlisting}[language=coco-highlight]
+>> fcn = @(f) @(p,d,u) deal(d, f(u));
+\end{lstlisting}
+to convert a function of $u$ to a \textsc{coco}-compatible format, as shown in the command below.
+\begin{lstlisting}[language=coco-highlight]
+>> funcs = { fcn(Fu('')), fcn(Fu('u')), fcn(Fu({'u','u'})) };
+\end{lstlisting}
+
+The successive stages of continuation considered above may be represented in terms of three different problem constructions, namely, i) construction from an initial solution guess with vanishing continuation multipliers, ii) construction from a branch point with the intent of switching to a secondary branch of solutions to the same restricted continuation problem, and iii) construction from a previously-found solution along an embedded submanifold defined by different sets $\mathbb{I}_\mu$ and $\mathbb{I}_\nu$. We collect repeated calls to \mcode{coco_add_func} and \mcode{coco_add_adjt} in composite constructors to avoid obscuring the essence of the methodology. Specifically, we envision a calling sequence of the form
+\begin{lstlisting}[language=coco-highlight]
+>> prob  = coco_prob;
+>> prob  = coco_set(prob, 'cont', 'PtMX', [0 50], 'NPR', inf);
+>> probb = isol2prob(prob, data, [1; 2; 4]);
+>> coco(probb, 'run1', [], 1, {'v' 'k' 'f' 'd.v' 'd.theta'});
+>> bd1   = coco_bd_read('run1');
+>> BPlab = coco_bd_labs(bd1, 'BP');
+>> probb = sol2prob(prob, data, 'run1', BPlab(1));
+>> probb = coco_set(probb, 'cont', 'branch', 'switch');
+>> coco(probb, 'run2', [], 1, {'d.v' 'k' 'f' 'v' 'd.theta'}, [0 1]);
+>> probb = sol2prob(prob, data, 'run2', 2);
+>> coco(probb, 'run3', [], 1, {'d.theta' 'k' 'f' 'theta' 'v'}, [-1 0]);
+>> probb = sol2prob(prob, data, 'run3', 4);
+>> coco(probb, 'run4', [], 1, {'ncp.f' 'k' 'f' 'theta' 'v'}, [0 2]);
+\end{lstlisting}
+where, initially, $(k,f,\theta)=(1,2,4)$, i.e., outside of the feasible region. 
+
+We prepare useful data for the three distinct constructors and store it in the variable \mcode{data}.
+\begin{lstlisting}[language=coco-highlight]
+>> bound = { fcn(@(u) u-1), fcn(@(u) 1), fcn(@(u) 0) };
+>> data  = struct('funcs', {funcs}, 'bound', {bound});
+\end{lstlisting}
+The \mcode{isol2prob} and \mcode{sol2prob} constructors shown below then rely on the input arguments to create appropriately initialized instances of the extended continuation problem.
+\begin{lstlisting}[language=coco-highlight]
+function prob = isol2prob(prob, data, u0)
+
+prob = coco_add_func(prob, 'vel', data.funcs{:}, [], 'inactive', 'v', ...
+  'u0', u0);
+prob = coco_add_pars(prob, 'pars', 1:3, {'k' 'f' 'theta'});
+prob = coco_add_func(prob, 'bound', data.bound{:}, [], ...
+  'inequality', 'bd', 'uidx', 2);
+prob = coco_add_adjt(prob, 'vel', 'd.v');
+prob = coco_add_adjt(prob, 'pars', {'d.k' 'd.f' 'd.theta'}, 'aidx', 1:3);
+prob = coco_add_adjt(prob, 'bound', 'ncp.f', 'aidx', 2);
+
+end
+\end{lstlisting}
+\begin{lstlisting}[language=coco-highlight]
+function prob = sol2prob(prob, data, run, lab)
+
+chart = coco_read_solution('vel', run, lab, 'chart');
+prob = coco_add_func(prob, 'vel', data.funcs{:}, [], 'inactive', 'v', ...
+  'u0', chart.x, 't0', chart.t);
+prob = coco_add_pars(prob, 'pars', 1:3, {'k' 'f' 'theta'});
+prob = coco_add_func(prob, 'bound', data.bound{:}, [], ...
+  'inequality', 'bd', 'uidx', 2);
+chart = coco_read_adjoint('vel', run, lab, 'chart');
+prob = coco_add_adjt(prob, 'vel', 'd.v', 'l0', chart.x, 'tl0', chart.t);
+chart = coco_read_adjoint('pars', run, lab, 'chart');
+prob  = coco_add_adjt(prob, 'pars', {'d.k' 'd.f' 'd.theta'}, ...
+  'aidx', 1:3, 'l0', chart.x, 'tl0', chart.t);
+chart = coco_read_adjoint('bound', run, lab, 'chart');
+prob  = coco_add_adjt(prob, 'bound', 'ncp.f', 'aidx', 2, 'l0', chart.x, ...
+  'tl0', chart.t);
+  
+end
+\end{lstlisting}
+
+\begin{exercises}
+\item Use the code included here to verify the theoretical predictions for an initial point inside or outside the feasible region. Explore different choices of initially inactive continuation parameters in the first stage of continuation, e.g., $\mu_k$ or $\mu_f$ rather than $\mu_\theta$. In the first case, you may drive $\nu_k$ instead of $\nu_\theta$ to zero  in the third stage of continuation.
+\item Consider the case of an initial solution guess in the feasible region. In the first stage, let $\nu_v$, $\mu_v$, $\nu_k$, $\nu_f$, and $\nu_\theta$ be active and $\mu_k$, $\mu_f$, $\mu_\theta$, and $\kappa_f$ be inactive. Show that the solution manifold includes a point where $\nu_v=1$. From this point, use your \textsc{coco} implementation to try to drive $\nu_k$, $\nu_\theta$, and $\nu_f$ to zero successively.
+\item Consider the case of an initial solution guess in the infeasible region. In the first stage, let $\nu_v$, $\mu_v$, $\nu_k$, $\mu_f$, and $\nu_\theta$ be active and $\nu_k$, $\mu_f$, $\mu_\theta$, and $\kappa_f$ be inactive. Show that the solution manifold includes a point where $\nu_v=1$. From this point, use your \textsc{coco} implementation to try to drive $\nu_k$, $\nu_\theta$, and $\kappa_f$ to zero successively.
+\item Modify the code for the \texttt{linode\_optim} example in \mcode{coco/coll/examples} to also account for the inequality constraint and repeat the analysis in this section.
+\end{exercises}
+
+
+\section{Staged construction}
+
+In the \textsc{coco} paradigm of staged construction, a general continuation problem is represented in terms of three Boolean matrices associated, respectively, with calls to \mcode{coco_add_func} to construct elements of $\Phi$ and $\Psi$, calls to \mcode{coco_add_adjt} to construct elements of $\Lambda$, and calls to \mcode{coco_add_comp} to construct elements of $\Xi$ and $\Theta$. These matrices satisfy the following two properties: i) no column consists entirely of zeroes and ii) if $i(j)$ denotes the row index of the first nonzero entry in the $j$-th column, then $i(1)=1$ and the sequence $\{i(1),\ldots\}$ is nondecreasing. There is a one-to-one relationship between the rows of the second matrix and a subset of the rows of the first matrix. 
+%An example of such a pair of matrices is shown below. 
+
+In general, the first of the three matrices has $n_u$ columns representing, in order, the elements of the vector of continuation variables $u$. Each call to \mcode{coco_add_func} used to construct elements of $\Phi$ or $\Psi$ appends a row to this matrix, and associates this row with a \textsc{coco}-compatible function encoding. Nonzero entries in this row indicate dependence of this function on a subset of already initialized elements of $u$, as well as on elements of $u$ that are initialized in this call. In the notation of the previous paragraph, the $j$-th element of $u$ is initialized in the $i(j)$-th such call to \mcode{coco_add_func}.
+
+The $n_\Lambda$ columns of the second of the three matrices represent the columns of $\Lambda(u)$. Each call to the \mcode{coco_add_adjt} constructor appends a row to this matrix, and associates this row with a \textsc{coco}-compatible function encoding. Nonzero entries in this row indicate columns whose content is partially assigned from the output of this function. The dependence of this function on a subset of the elements of $u$ is identical to that indicated by the uniquely associated row of the first matrix.
+
+The one-to-one association between rows of the second matrix and a subset of rows of the first matrix allows for a default behavior of \mcode{coco_add_adjt}, in which construction relies on information provided to \textsc{coco} by the associated call to \mcode{coco_add_func}. Specifically, provided that the associated call to \mcode{coco_add_func} includes a function handle to an explicit encoding of the Jacobian of the zero or monitor function, then omission of a function handle in the call to \mcode{coco_add_adjt} implies that this explicit Jacobian should be used to compute the corresponding elements of $\Lambda(u)$.
+
+Finally, the third of the three matrices has $n_v$ columns representing, in order, the elements of the vector of complementary continuation variables $v$. Each call to \mcode{coco_add_comp} used to construct elements of $\Xi$ or $\Theta$ appends a row to this matrix, and associates this row with a \textsc{coco}-compatible function encoding. Nonzero entries in this row indicate dependence of this function on a subset of already initialized elements of $v$, as well as on elements of $v$ that are initialized in this call. In the notation of the first paragraph, the $j$-th element of $v$ is initialized in the $i(j)$-th such call to \mcode{coco_add_comp}.
+
+\section{Constructor syntax}
+
+\subsection{Zero and monitor functions - \texttt{coco\_add\_func}}
+We construct a function object to represent elements of $\Phi$ or $\Psi$ and append this to a partially implemented continuation problem structure \mcode{prob} by adhering to the appropriate argument syntax for the \mcode{coco_add_func} constructor:
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_func(prob, fid, varargin);
+\end{lstlisting}
+where
+\begin{lstlisting}[language=coco-highlight]
+varargin = ( @f, [ @df, [ @ddf, ] ] | @fdf [ @ddf, ] ) data, type_spec, opts
+\end{lstlisting}
+Here, the \emph{function identifier} \mcode{fid} denotes a string variable that is uniquely identified with this call to \mcode{coco_add_func} and that can be used to reference the function object that is instantiated in this call, e.g., in subsequent calls to \mcode{coco_add_adjt}.
+
+The argument \mcode{@f} denotes a function handle to a \textsc{coco}-compatible encoding of a \emph{realization}  $f:\mathbb{R}^{p}\rightarrow\mathbb{R}^{q}$, \mcode{@df} denotes a function handle to a \textsc{coco}-compatible encoding of the function $Df:\mathbb{R}^{p}\rightarrow\mathbb{R}^{q\times p}$ whose component functions are first partial derivatives of $f$ with respect to its arguments, and \mcode{@ddf} denotes a function handle to a \textsc{coco}-compatible encoding of the function $D^2f:\mathbb{R}^{p}\rightarrow\mathbb{R}^{q\times p\times p}$ whose component functions are second partial derivatives of $f$ with respect to its arguments. The integer $p$ is less than or equal to the number of continuation variables introduced in this and previous stages of construction. For a zero function, the integer $n_\Phi-q$ is greater than or equal to number of components of $\Phi$ introduced in previous stages of construction. For a monitor function, $n_\Psi-q$ is greater than or equal to the number of components of $\Psi$ introduced in previous stages of construction. In lieu of separate encodings for $f$ and $Df$, the notation \mcode{@fdf} denotes a function handle to a \textsc{coco}-compatible encoding $\{f,Df\}:\mathbb{R}^p\rightarrow\{\mathbb{R}^{q},\mathbb{R}^{q\times p}\}$.
+
+The \emph{function data structure} \mcode{data} contains a structure array with function-specific content that can be accessed and modified by the encodings of $f$, $Df$ and $D^2f$. If this variable is an instance of the \mcode{coco_func_data} class, then its content may be accessed and modified by any other function to which the variable is sent. A write-protected copy of the function data structure associated with the function identifier \mcode{fid} is returned by the call
+\begin{lstlisting}[language=coco-highlight]
+>> coco_get_func_data(prob, fid, 'data')
+\end{lstlisting}
+Such a write-protected copy should not be passed as the function data structure argument in another call to \mcode{coco_add_func}. Typically, the function data structure contains information that can be precomputed and reused in multiple calls to the encodings of $f$ and its derivatives, for example during the application of a sequence of Newton iterations. Changes to \mcode{data} between continuation steps are commonly associated with adaptive changes to the discretization of an infinite-dimensional problem or updates to parameterizations that depend on previous points on the solution manifold. 
+
+The argument \mcode{type_spec} is the single string \mcode{'zero'} in the case that $f$ represents a realization of elements of $\Phi$. In the case that $f$ represents a realization of elements of $\Psi$, \mcode{type_spec} is the string
+\begin{itemize}
+\item \mcode{'active'} followed by a cell array of $q$ string labels assigned to the corresponding embedded continuation parameters, which are designated as initially active;
+\item \mcode{'inactive'} followed by a cell array of $q$ string labels assigned to the corresponding  embedded continuation parameters, which are designated as initially inactive;
+\item \mcode{'internal'} followed by a cell array of $q$ string labels assigned to the corresponding embedded continuation parameters, which are designated as initially active;
+\item \mcode{'inequality'} followed by a cell array of $q$ string labels assigned to the corresponding embedded continuation parameters, which are designated as initially active;
+\item \mcode{'regular'} followed by a cell array of $q$ string labels assigned to the corresponding non-embedded continuation parameters;
+\item \mcode{'discrete'} followed by a cell array of $q$ string labels assigned to the corresponding non-embedded continuation parameters; or
+\item \mcode{'singular'} followed by a cell array of $q$ string labels assigned to the corresponding non-embedded continuation parameters.
+\end{itemize}
+Initially inactive continuation parameters may be activated by an exchange with an active (complementary) continuation parameter using the \mcode{coco_xchg_pars} utility, or by explicitly releasing them in the call to the \mcode{coco} entry-point function. Initially active continuation parameters may be deactivated by an exchange with an inactive (complementary) continuation parameter using \mcode{coco_xchg_pars} or, in the case of parameters labeled as \mcode{'internal'}, by an automatic exchange with overspecified inactive (complementary) continuation parameters in the call to the \mcode{coco} entry-point function. 
+
+Monitor functions associated with embedded continuation parameters must be continuously differentiable. In contrast, non-embedded continuation parameters are associated with monitor functions that may not be differentiable or even continuous along the solution manifold. While active embedded continuation parameters are treated as unknowns and solved for together with the continuation variables, non-embedded continuation parameters are assigned values by evaluating the corresponding monitor function after the continuation variables have been found. Event detection using non-embedded continuation parameters is therefore sensitive to step-size selection. Non-embedded continuation parameters allow for detection of regular special points (\mcode{'regular'} or \mcode{'discrete'}) with nonsingular problem Jacobian or approximate detection of singular special points (\mcode{'singular'}) with singular problem Jacobian.
+
+The argument \mcode{opts} is a placeholder for an arbitrary sequence of additional arguments that modify the construction of the function object. For example, in the call
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_func(prob, ..., 'f+df');
+\end{lstlisting}
+the flag \mcode{'f+df'} indicates that the first function handle in \mcode{varargin} is of the form \mcode{@fdf}. In the call
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_func(prob, ..., 'fdim', 3);
+\end{lstlisting}
+the flag \mcode{'fdim'} indicates that the output dimension $q$ equals $3$, thereby eliminating the need to determine $q$ by evaluation of the function $f$ during construction.
+
+For elements of $\Phi$ or $\Psi$, the input argument to the corresponding function $f$ is populated at run-time with a subset of $p$ elements of $u$, indexed by a function-specific, ordered, dependency-index set $\mathbb{K}$. For example, if 12 continuation variables have been introduced in previous stages of construction, then the call
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_func(prob, ..., 'uidx', [2 4:10], 'u0', [0.3 2.5]);
+\end{lstlisting}
+results in the assignments $\mathbb{K}=\{2,4,5,6,7,8,9,10,13,14\}$ and $u_{0,\{13,14\}}=(0.3,2.5)$. When the \mcode{'u0'} flag is present, an optional additional inclusion of the flag \mcode{'t0'} as in this call
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_func(prob, ..., 'u0', [0.3 2.5], 't0', [1.4 3.9]);
+\end{lstlisting}
+results in the assignment $t_{0,\{13,14\}}=(1.4,3.9)$ of components of a vector available for use in the construction\footnote{The method of construction of the initial direction of continuation differs between different atlas algorithms. Prior to the January 2025 release, atlas algorithms included with \textsc{coco} performed such construction using one of two methods depending on whether any preceding call to \mcode{coco_add_func} included the \mcode{'t0'} flag or not. Starting with the January 2025 release, the optional settings of \mcode{atlas_1d} include the \mcode{'branch'} property with values \mcode{'reset'} (default), \mcode{'no switch'} (previous behavior), and \mcode{'switch'}. These differentiate between construction that ignores the inclusion of \mcode{'t0'} data, construction that uses such data to continue along a corresponding direction, and construction that uses such data to continue along a transversal direction from a branch point along a secondary branch.}  of the initial direction of continuation. When the \mcode{'t0'} flag is not present, these components default to $0$.
+ 
+For a representation of elements of $\Phi$ or $\Psi$, a copy of the function dependency index set $\mathbb{K}$ may be obtained with the call
+ \begin{lstlisting}[language=coco-highlight]
+ >> coco_get_func_data(prob, fid, 'uidx');
+\end{lstlisting}
+In a typical application, the call
+\begin{lstlisting}[language=coco-highlight]
+ >> [data, uidx] = coco_get_func_data(prob, fid, 'data', 'uidx');
+\end{lstlisting}
+may be followed by a construction of the form
+ \begin{lstlisting}[language=coco-highlight]
+ >> prob = coco_add_func(prob, ..., 'uidx', uidx(data.x_idx));
+\end{lstlisting}
+where \mcode{uidx(data.x_idx)} evaluates to a subset of the function dependency index set of the function with function identifier \mcode{fid}, indexed by the \mcode{x_idx} field of the function data structure of this function. This type of formulation uses the relative indexing of \mcode{data.x_idx} to accommodate any dependence on preceding stages of construction, without necessitating explicit reference to the detailed implementation of each such stage. The function dependency index set associated with the function identifier \mcode{fid} may also be extracted from data stored to disk during continuation using the \mcode{coco_read_solution} utility according to the syntax
+\begin{lstlisting}[language=coco-highlight]
+>> uidx = coco_read_solution(fid, run, lab, 'uidx');
+\end{lstlisting}
+where \mcode{run} is a string that denotes the run identifier and \mcode{lab} is an integer that identifies the solution label.
+
+The call 
+\begin{lstlisting}[language=coco-highlight]
+ >> uidx = coco_get_func_data(prob, 'efunc', 'uidx');
+\end{lstlisting}
+may be used to obtain the union of all function dependency index sets for functions constructed using \mcode{coco_add_func} or related constructors (including the special-purpose wrappers \mcode{coco_add_pars}, \mcode{coco_add_glue}, and \mcode{coco_add_functionals}).
+
+
+
+%%%%%%%%%%
+\subsection{Adjoint functions - \texttt{coco\_add\_adjt}}
+Each call to \mcode{coco_add_func} used to construct elements of $\Phi$ or $\Psi$ may be uniquely associated to a subsequent call to the \mcode{coco_add_adjt} constructor according to the syntax:
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_adjt(prob, fid, varargin);
+\end{lstlisting}
+where
+\begin{lstlisting}[language=coco-highlight]
+varargin = [ ( @g, | @gdg, ) [ @dg, ] data, ] [ par_names, ['active']] opts
+\end{lstlisting}
+and the function identifier \mcode{fid} is identical to the function identifier used in the preceding call to \mcode{coco_add_func}.
+
+Here, the argument \mcode{@g} denotes a function handle to a \textsc{coco}-compatible encoding of a realization $g:\mathbb{R}^{p}\rightarrow\mathbb{R}^{q_1\times q_2}$, while \mcode{@dg} denotes a function handle to a \textsc{coco}-compatible encoding of the function $Dg:\mathbb{R}^{p}\rightarrow\mathbb{R}^{q_1\times q_2\times p}$ whose component functions are first partial derivatives of $g$ with respect to its arguments. In lieu of separate encodings for $g$ and $Dg$, the notation \mcode{@gdg} denotes a function handle to a \textsc{coco}-compatible encoding $\{g,Dg\}:\mathbb{R}^p\rightarrow\{\mathbb{R}^{q_1\times q_2},\mathbb{R}^{q_1\times q_2\times p}\}$. The \mcode{data} argument again denotes a function data structure. This may be distinct from the function data structure of the corresponding zero or monitor function. In more sophisticated applications, an instance of the \mcode{coco_func_data} class may be used to share data between a zero function and the corresponding adjoint function.
+
+If the preceding call to the \mcode{coco_add_func} constructor defined a zero function, then the call to \mcode{coco_add_adjt} adds content to $\Lambda_\Phi$ in \eqref{eq:stationary} or \eqref{eq:inequality} and initializes a corresponding subset of the continuation multipliers $\lambda_\Phi$. In this case, the integer $n_{\lambda_\Phi}-q_1$ is greater than or equal to the number of rows of $\Lambda_\Phi$ introduced in previous stages of construction. Similarly, if the associated call to \mcode{coco_add_func} defined a monitor function of type \mcode{'inactive'}, \mcode{'active'}, or \mcode{'internal'}, then the call to \mcode{coco_add_adjt} adds content to $\Lambda_\Psi$ in \eqref{eq:stationary} or \eqref{eq:inequality} and initializes a corresponding subset of the continuation multipliers $\lambda_\Psi$. In this case, the integer $n_{\lambda_\Psi}-q_1$ is greater than or equal to the number of rows of $\Lambda_\Psi$ introduced in previous stages of construction. Finally, if the associated call to \mcode{coco_add_func} defined a monitor function of type \mcode{'inequality'}, then the call to \mcode{coco_add_adjt} adds content to $\Lambda_G$ in \eqref{eq:inequality} and initializes a corresponding subset of the continuation multipliers $\lambda_G$. In this case, the integer $n_{\lambda_G}-q_1$ is greater than or equal to the number of rows of $\Lambda_G$ introduced in previous stages of construction.
+
+As in the calling syntax to \mcode{coco_add_func}, the \mcode{opts} argument is a placeholder for an arbitrary sequence of additional arguments that modify the construction of the adjoint function object. For example, in the call
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_adjt(prob, ..., 'f+df');
+\end{lstlisting}
+the flag \mcode{'f+df'} indicates that the first function handle in \mcode{varargin} is of the form \mcode{@gdg}. 
+
+The integer $q_1$ equals the number of continuation multipliers associated with this stage of construction. These multipliers are initialized to $0$ by default. The default behavior can be overridden by including the flag \mcode{'l0'} among the \mcode{opts} arguments followed by an array of real numbers of length $q_1$, as in the call
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_adjt(prob, ..., 'l0', [3.8 1.5 -0.43]);
+\end{lstlisting}
+where the corresponding continuation multipliers are initialized to $3.8$, $1.5$, and $-0.43$, respectively.
+An optional additional inclusion of the flag \mcode{'tl0'} followed by an array of real numbers of length $q_1$ may be used to initialize the corresponding components of a vector used to construct the initial direction of continuation.
+
+If the preceding call to \mcode{coco_add_func} defined a monitor function of type \mcode{'inactive'}, \mcode{'active'}, or \mcode{'internal'}, then the optional inclusion of a cell array of $q_1$ string labels in the \mcode{par_names} argument results in the automatic association of each continuation multiplier with an element of the continuation parameter vector $\nu$ in \eqref{eq:stationary} or $\nu_{\lambda_\Psi}$ in \eqref{eq:inequality} labeled by the corresponding string and inactive by default. The optional \mcode{'active'} flag may be used to override this default behavior.
+
+If the preceding call to \mcode{coco_add_func} defined a monitor function of type \mcode{'inequality'}, then the optional inclusion of a cell array of $q_1$ string labels in the \mcode{par_names} argument results in the automatic association of each continuation multiplier and corresponding monitor function with an element of $\Theta_G$ in \eqref{eq:inequality} given by the nonsmooth Fischer-Burmeister complementarity function $(a,b)\mapsto\sqrt{a^2+b^2}-a-b$, as well as an element of the continuation parameter vector $\nu_G$ in \eqref{eq:inequality} labeled by the corresponding string and inactive by default. The optional \mcode{'active'} flag may be used to override this default behavior. 
+
+If the first set of optional arguments is omitted in a call to \mcode{coco_add_adjt} and provided that the preceding call to \mcode{coco_add_func} included a function handle to an encoding of the corresponding Jacobian $Df$, then $g$ is assumed to equal $Df$, in which case $q_1=q$ and $q_2=p$. In this case, if a function handle to an encoding of $D^2f$ is provided in the call to \mcode{coco_add_func}, then $Dg$ is assumed to equal $D^2f$.
+
+
+The input dimension $p$ is inherited from the preceding call to \mcode{coco_add_func}. The output dimensions $q_1$ and $q_2$ may be determined by evaluation of $g$ during construction. Such evaluation is suppressed if \mcode{opts} includes the flag \mcode{'adim'} followed by a vector of two integers, assigned to $q_1$ and $q_2$, respectively. 
+
+If the top left $5\times 8$ submatrix of $\Lambda$ has been defined in previous stages of construction, then the call
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_adjt(prob, ..., 'adim', [3 6], 'aidx', [1 3:5]);
+\end{lstlisting}
+uses the flag \mcode{'aidx'} to indicate that the first four columns of the output of $g$ should be assigned to columns $1$, $3$, $4$, and $5$ of the three rows added to $\Lambda$, while the remaining two columns of the output of $g$ are padded from the top with five $0$'s and appended as entire columns to $\Lambda$.
+
+As with \mcode{coco_add_func}, relative indexing may be used to avoid hard-coding dependencies on the detailed implementations of previous stages of construction.  To this end, the call
+\begin{lstlisting}[language=coco-highlight]
+ >> [data, axidx] = coco_get_adjt_data(prob, fid, 'data', 'axidx');
+\end{lstlisting}
+provides a write-protected copy of the function data structure and an array of column indices associated with potentially nonzero columns in the rows of $\Lambda$ associated with the function identifier \mcode{fid}. Similarly, 
+\begin{lstlisting}[language=coco-highlight]
+ >> coco_get_adjt_data(prob, fid, 'afidx');
+\end{lstlisting}
+returns an integer array whose entries identify rows of $\Lambda$ associated with the function identifier \mcode{fid}, as well as with the location in $\lambda$ of the corresponding continuation multipliers. An integer array identifying the location of the corresponding continuation multipliers in the collection $(u,\lambda,v)$ may be extracted from data stored to disk during continuation using the \mcode{coco_read_adjoint} utility according to the syntax:
+\begin{lstlisting}[language=coco-highlight]
+>> lidx = coco_read_adjoint(fid, run, lab, 'lidx');
+\end{lstlisting}
+where \mcode{run} is a string that denotes the run identifier and \mcode{lab} is an integer that identifies the solution label.
+
+The call 
+\begin{lstlisting}[language=coco-highlight]
+ >> coco_get_adjt_data(prob, 'adjoint', 'lidx');
+\end{lstlisting}
+may be used to obtain the indices in $\lambda$ of all continuation multipliers constructed using \mcode{coco_add_adjt} or similar toolbox constructors. More refined access to the indices corresponding to $\lambda_\Phi$, $\lambda_\Psi$, and $\lambda_G$ is afforded by each of the calls
+\begin{lstlisting}[language=coco-highlight]
+ >> coco_get_adjt_data(prob, 'adjoint', 'lidx_Phi');
+ >> coco_get_adjt_data(prob, 'adjoint', 'lidx_Psi');
+ >> coco_get_adjt_data(prob, 'adjoint', 'lidx_G');
+\end{lstlisting}
+These may be used to impose additional conditions on the continuation multipliers in a subsequent call to \mcode{coco_add_comp}.
+
+
+%%%%%%%%%%%%%%
+\subsection{Complementary zero and monitor functions - \texttt{coco\_add\_comp}}
+As described in the previous section, the special forms of $\Theta$ in \eqref{eq:stationary} and \eqref{eq:inequality} may be obtained by the default response of \mcode{coco_add_adjt} to the inclusion of string labels for the corresponding components of $\nu$ in \eqref{eq:stationary} and \eqref{eq:inequality} and $\nu_G$ in \eqref{eq:inequality}. We construct a function object to represent general elements of $\Xi$ or $\Theta$ and append this to a partially implemented continuation problem structure \mcode{prob} by adhering to the appropriate argument syntax for the \mcode{coco_add_comp} constructor:
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_comp(prob, fid, varargin);
+\end{lstlisting}
+where
+\begin{lstlisting}[language=coco-highlight]
+varargin = ( @f, [ @df,] | @fdf, ) data, type_spec, opts
+\end{lstlisting}
+As with \mcode{coco_add_func}, the \emph{function identifier} \mcode{fid} denotes a string variable that is uniquely identified\footnote{There can be no duplicate use of function identifiers in separate calls to \mcode{coco_add_func}, \mcode{coco_add_comp}, or special-purpose wrappers to either of these constructors.} with this call to \mcode{coco_add_comp} and that can be used to reference the function object that is instantiated in this call.
+
+The argument \mcode{@f} denotes a function handle to a \textsc{coco}-compatible encoding of a \emph{realization}  $f:\mathbb{R}^{p_1}\times\mathbb{R}^{p_2}\times\mathbb{R}^{p_3}\rightarrow\mathbb{R}^{q}$, \mcode{@df} denotes a function handle to a \textsc{coco}-compatible encoding of the function $Df:\mathbb{R}^{p_1}\times\mathbb{R}^{p_2}\times\mathbb{R}^{p_3}\rightarrow\mathbb{R}^{q\times p_1}\times\mathbb{R}^{q\times p_2}\times\mathbb{R}^{q\times p_3}$ whose component functions are first partial derivatives of $f$ with respect to its arguments. The integer $p_3$ is less than or equal to the number of complementary continuation variables introduced in this and previous stages of construction. For a complementary zero function, the integer $n_\Xi-q$ is greater than or equal to number of components of $\Xi$ introduced in previous stages of construction. For a complementary monitor function, $n_\Theta-q$ is greater than or equal to the number of components of $\Theta$ introduced in previous stages of construction. In lieu of separate encodings for $f$ and $Df$, the notation \mcode{@fdf} denotes a function handle to a \textsc{coco}-compatible encoding $\{f,Df\}:\mathbb{R}^{p_1}\times\mathbb{R}^{p_2}\times\mathbb{R}^{p_3}\rightarrow\{\mathbb{R}^{q},\mathbb{R}^{q\times p_1}\times\mathbb{R}^{q\times p_2}\times\mathbb{R}^{q\times p_3}\}$.
+
+As with \mcode{coco_add_func}, the \emph{function data structure} \mcode{data} contains a structure array with function-specific content that can be accessed and modified by the encodings of $f$ and $Df$. If this variable is an instance of the \mcode{coco_func_data} class, then its content may be accessed and modified by any other function to which the variable is sent. A write-protected copy of the function data structure associated with the function identifier \mcode{fid} is returned by the call
+\begin{lstlisting}[language=coco-highlight]
+>> coco_get_comp_data(prob, fid, 'data')
+\end{lstlisting}
+Such a write-protected copy should not be passed as the function data structure argument in another call to \mcode{coco_add_comp}. As with zero and monitor functions, the function data structure contains information that can be precomputed and reused in multiple calls to the encodings of $f$ and its derivatives, for example during the application of a sequence of Newton iterations. Adaptive updates to \mcode{data} during continuation are associated with changes to problem discretizations or problem parameterizations.
+
+The argument \mcode{type_spec} is the single string \mcode{'zero'} in the case that $f$ represents a realization of elements of $\Xi$. In the case that $f$ represents a realization of elements of $\Theta$, \mcode{type_spec} is one of the strings \mcode{'active'}, \mcode{'inactive'}, or \mcode{'internal'} followed by a cell array of $q$ string labels assigned to the corresponding embedded complementary continuation parameters, which are designated as initially active, inactive, or active, respectively. Initially inactive complementary continuation parameters may be activated by an exchange with an active (complementary) continuation parameter using the \mcode{coco_xchg_pars} utility, or by explicitly releasing them in the call to the \mcode{coco} entry-point function. Initially active complementary continuation parameters may be deactivated by an exchange with an inactive (complementary) continuation parameter using \mcode{coco_xchg_pars} or, in the case of parameters labeled as \mcode{'internal'}, by an automatic exchange with overspecified inactive (complementary) continuation parameters in the call to the \mcode{coco} entry-point function. 
+
+In identical fashion to \mcode{coco_add_func}, the argument \mcode{opts} is a placeholder for an arbitrary sequence of additional arguments that modify the construction of the function object. For example, in the call
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_comp(prob, ..., 'f+df');
+\end{lstlisting}
+the flag \mcode{'f+df'} indicates that the first function handle in \mcode{varargin} is of the form \mcode{@fdf}. In the call
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_comp(prob, ..., 'fdim', 3);
+\end{lstlisting}
+the flag \mcode{'fdim'} indicates that the output dimension $q$ equals $3$, thereby eliminating the need to determine $q$ by evaluation of the function $f$ during construction.
+
+For elements of $\Xi$ or $\Theta$, the input argument to the corresponding function $f$ is populated at run-time with a subset of $p_1$ elements of $u$, $p_2$ elements of $\lambda$, and $p_3$ elements of $v$, indexed by function-specific, ordered, dependency-index sets $\mathbb{K}_u$, $\mathbb{K}_\lambda$, and $\mathbb{K}_v$. Note that only complementary continuation variables may be added to a continuation problem in a call to \mcode{coco_add_comp}. For example, if 5 continuation variables, 6 continuation multipliers, and 8 complementary continuation variables have been introduced in previous stages of construction, then the call
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_comp(prob, ..., 'uidx', 1:3, 'lidx', [1 3 5], ...
+     'vidx', [2 4:6], 'v0', [0.3 2.5]);
+\end{lstlisting}
+results in the assignments $\mathbb{K}_u=\{1,2,3\}$, $\mathbb{K}_\lambda=\{1,3,5\}$, $\mathbb{K}_v=\{2,4,5,6,9,10\}$ and $v_{0,\{9,10\}}=(0.3,2.5)$. When the \mcode{'v0'} flag is present, an optional additional inclusion of the flag \mcode{'tv0'} as in this call
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_comp(prob, ..., 'v0', [0.3 2.5], 'tv0', [1.4 3.9]);
+\end{lstlisting}
+results in the assignment $t_{v0,\{9,10\}}=(1.4,3.9)$ of components of a vector used in the construction of the initial direction of continuation. When the \mcode{'t0'} flag is not present, these components default to $0$.
+ 
+For a representation of elements of $\Xi$ or $\Theta$, copies of the function dependency index sets $\mathbb{K}_u$, $\mathbb{K}_\lambda$, and $\mathbb{K}_v$, respectively, may be obtained with the calls
+ \begin{lstlisting}[language=coco-highlight]
+ >> coco_get_comp_data(prob, fid, 'uidx');
+ >> coco_get_comp_data(prob, fid, 'lidx');
+ >> coco_get_comp_data(prob, fid, 'vidx');
+\end{lstlisting}
+In a typical application, the call
+\begin{lstlisting}[language=coco-highlight]
+ >> [data, vidx] = coco_get_comp_data(prob, fid, 'data', 'vidx');
+\end{lstlisting}
+may be followed by a construction of the form
+ \begin{lstlisting}[language=coco-highlight]
+ >> prob = coco_add_comp(prob, ..., 'vidx', vidx(data.x_idx));
+\end{lstlisting}
+where \mcode{vidx(data.x_idx)} evaluates to a subset of the $\mathbb{K}_v$ function dependency index set of the function with function identifier \mcode{fid}, indexed by the \mcode{x_idx} field of the function data structure of this function. This type of formulation uses the relative indexing of \mcode{data.x_idx} to accommodate any dependence on preceding stages of construction, without necessitating explicit reference to the detailed implementation of each such stage. An integer array identifying the location of the corresponding complementary continuation variables in the collection $(u,\lambda,v)$ may also be extracted from data stored to disk during continuation using the \mcode{coco_read_complementary} utility according to the syntax
+\begin{lstlisting}[language=coco-highlight]
+>> coco_read_complementary(fid, run, lab, 'vidx');
+\end{lstlisting}
+where \mcode{run} is a string that denotes the run identifier and \mcode{lab} is an integer that identifies the solution label.    
+
+
+%%%%%%%%%%%
+\subsection{Special purpose wrappers}
+The \textsc{coco} release includes several special purpose wrappers that provide shortcuts to particular forms of problem construction. Different calling syntaxes separate default behaviors from more sophisticated constructions.
+
+\paragraph{\texttt{coco\_add\_pars:}}
+The \mcode{coco_add_pars} special-purpose wrapper obeys the calling syntax
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_pars(prob, fid, varargin);
+\end{lstlisting}
+where
+\begin{lstlisting}[language=coco-highlight]
+varargin = ( pidx  par_names | par_names pvals [ tvals ] ) [ par_type ]
+\end{lstlisting}
+and
+\begin{lstlisting}[language=coco-highlight]
+par_type = ( 'active' | 'inactive' | 'internal' )
+\end{lstlisting}
+Specifically, provided that the number of integers in \mcode{pidx} equals the number of string labels in \mcode{par_names}, the command
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_pars(prob, fid, pidx, par_names, par_type);
+\end{lstlisting}
+extends the continuation problem structure with embedded monitor functions of function type \mcode{par_type} that evaluate to previously introduced continuation variables identified by the index array \mcode{pidx}, and continuation parameters labeled by the elements of \mcode{par_names}. Here, the omission of \mcode{par_type} results in continuation parameters that are initially inactive. Similarly, provided that the number of string labels in \mcode{par_names} equals the number of elements of \mcode{pvals} (and, if included, \mcode{tvals}), the embedded monitor functions appended to \mcode{prob} with the command
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_pars(prob, fid, par_names, pvals, tvals, par_type);
+\end{lstlisting}
+evaluate to new continuation variables initialized by elements of \mcode{pvals}. Here, inclusion of \mcode{tvals} assigns potentially nonzero values to the corresponding components of the vector used to construct the initial direction of continuation. This second usage of \mcode{coco_add_pars} can be used to introduce continuation variables without associated elements of $\Phi$ or $\Psi$.
+
+\paragraph{\texttt{coco\_add\_glue:}}
+The \mcode{coco_add_glue} special-purpose wrapper obeys the calling syntax
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_glue(prob, fid, varargin);
+\end{lstlisting}
+where
+\begin{lstlisting}[language=coco-highlight]
+varargin = x1_idx x2_idx [ gap ] [ ( par_names [ par_type ] | 'zero' ) ]
+\end{lstlisting}
+and
+\begin{lstlisting}[language=coco-highlight]
+par_type = ( 'active' | 'inactive' | 'internal' )
+\end{lstlisting}
+Specifically, provided that \mcode{x1_idx} and \mcode{x2_idx} are equal-length index arrays, the command
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_glue(prob, fid, x1_idx, x2_idx, gap, 'zero');
+\end{lstlisting}
+extends the continuation problem structure with zero functions that evaluate to pairwise differences between continuation variables identified by the index arrays \mcode{x1_idx} and \mcode{x2_idx} and added to the numerical value \mcode{gap}, which defaults to $0$ when omitted. The command
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_glue(prob, fid, x1_idx, x2_idx, gap, par_names, par_type);
+\end{lstlisting}
+instead extends the continuation problem structure with corresponding embedded monitor functions of function type \mcode{par_type} and associated continuation parameters that are labeled by the elements of \mcode{par_names} and initially inactive by default.
+
+
+\paragraph{\texttt{coco\_add\_functionals:}}
+The \mcode{coco_add_functionals} special-purpose wrapper obeys the calling syntax
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_functionals(prob, fid, varargin);
+\end{lstlisting}
+where
+\begin{lstlisting}[language=coco-highlight]
+varargin = A b x_idx [ par_names ( 'active' | 'inactive' | 'internal' ) ]
+\end{lstlisting}
+and the number of rows of $A$ equals the number of elements in the one-dimensional array $b$. Specifically, provided that \mcode{x_idx} is a one-dimensional index array with as many elements as the number of columns of the matrix $A$, the command
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_functionals(prob, fid, A, b, x_idx);
+\end{lstlisting}
+extends the continuation problem structure with zero functions that evaluate to $Au-b$, where $u$ consists of continuation variables indexed by \mcode{x_idx}. If, instead, \mcode{x_idx} is a two-dimensional array of the same dimensions as $A$, the same command extends the continuation problem structure with zero functions that evaluate to $\hat{A}u-b$, where $u$ consists of continuation variables indexed by the concatenation of the rows of \mcode{x_idx}, and $\hat{A}$ is a block diagonal matrix with blocks given by the rows of $A$. The inclusion of the optional arguments \mcode{par_names} and \mcode{par_type} result in an encoding of monitor functions of function type given by \mcode{par_type} and associated with continuation parameters with string labels given by \mcode{par_names}.
+
+\paragraph{\texttt{coco\_add\_comp\_pars:}}
+The \mcode{coco_add_comp_pars} special-purpose wrapper obeys the calling syntax
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_comp_pars(prob, fid, pidx, par_names, varargin);
+\end{lstlisting}
+where
+\begin{lstlisting}[language=coco-highlight]
+varargin = [ ( 'active' | 'inactive' | 'internal' ) ]
+\end{lstlisting}
+Specifically, provided that the number of integers in \mcode{pidx} equals the number of string labels in \mcode{par_names}, the command
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_comp_pars(prob, fid, pidx, par_names, par_type);
+\end{lstlisting}
+extends the continuation problem structure with embedded complementary monitor functions of function type \mcode{par_type} that evaluate to previously introduced continuation multipliers identified by the index array \mcode{pidx}, and complementary continuation parameters labeled by the elements of \mcode{par_names}. Here, the omission of \mcode{par_type} results in complementary continuation parameters that are initially inactive.
+
+
+\paragraph{\texttt{coco\_add\_complementarity:}}
+The \mcode{coco_add_complementarity} special-purpose wrapper obeys the calling syntax
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_add_complementarity(prob, fid, varargin);
+\end{lstlisting}
+where \mcode{fid} is the function identifier used in a preceding call to \mcode{coco_add_func} to append a monitor function $u\mapsto G(u)$ of function type \mcode{'inequality'} to the continuation problem structure \mcode{prob},
+\begin{lstlisting}[language=coco-highlight]
+varargin = [ fhan [ dfhan ] v0 [ tv0 ] ] par_names
+\end{lstlisting}
+and the number of string labels in \mcode{par_names} equals the output dimension of $G$. If the corresponding continuation multipliers are denoted by $\lambda_G$, then the command
+\begin{lstlisting}[language=coco-highlight]
+>> coco_add_complementarity(prob, fid, par_names);
+\end{lstlisting}
+extends the continuation problem structure with the complementary monitor function
+\begin{equation}
+(u,\lambda,v)\mapsto\Theta_G(\lambda_G,-G(u)),
+\end{equation}
+where $\Theta_G$ is a vectorized implementation of the Fischer-Burmeister complementarity function $(a,b)\mapsto \sqrt{a^2+b^2}-a-b$ for $a,b\in\mathbb{R}$. The associated continuation parameters are labeled by the string labels given in \mcode{par_names}. 
+
+The default assignment of the Fischer-Burmeister function may be replaced by a function $(a,b,\upsilon)\mapsto f(a,b,\upsilon)\in\mathbb{R}$ for $a,b\in\mathbb{R}$ and some parameterization $\upsilon$ using the following calling syntax:
+\begin{lstlisting}[language=coco-highlight]
+>> coco_add_complementarity(prob, fid, fhan, dfhan, v0, tv0, par_names);
+\end{lstlisting}
+Here, \mcode{fhan} is a function handle to a vectorized (in the first two arguments) encoding of $f$. The corresponding vectorized implementation of the function Jacobian is optionally given in \mcode{dfhan}. The parameterization $\upsilon$ corresponds to a set of new complementary continuation variables that are initialized with \mcode{v0}. The optional argument \mcode{tv0} assigns potentially nonzero values  to the corresponding components of the vector used to construct the initial direction of continuation.
+
+\section{Regularization}
+
+Following any stage of construction and the release of inactive continuation parameters in the subsequent call to the \mcode{coco} entry-point function, a set of nonlinear equations is obtained of the form $\Phi(u)=0$ for $\Phi:\mathbb{R}^n\mapsto\mathbb{R}^m$. \textsc{coco} supports continuation along an embedded manifold of dimension $d\in[\max(n-m,0),n]$ provided that for every point $u^\ast$ on this manifold, there exists a matrix $S\in\mathbb{R}^{m\times (d-n+m)}$ such that $(u,w)=(u^\ast,0)$ is a regular solution of
+\begin{equation}
+\label{eq:regular}
+\Phi(u)+S\cdot w=0.
+\end{equation}
+When this holds, $d=n-r$, where $r$ is the rank of $\partial\Phi(u^*)$. It follows that $d=n-m$ if and only if $\partial\Phi(u^*)$ is full rank and $n\ge m$.
+
+Given a desired manifold dimension $d$, a partially constructed continuation problem with $n'$ unknowns and $m$ equations, and $k$ inactive continuation parameters included in the call to the \mcode{coco} entry-point function, \textsc{coco} will release the first $\min(k,d-n'+m)$ of these parameters. Continuation will proceed provided that the regularity condition above is then satisfied with $n=\min(n'+k,d+m)$.
+
+Consider the problem of characterizing solutions to the algebraic equations
+\begin{equation}
+\label{eq:singularex}
+a(\cos P-1)+b\sin P=0,\,P(b(\cos P-1)-a\sin P)=0,\,Pb=0,\,a-\mu_a=0
+\end{equation}
+near the point $(a,b,P,\mu_a)=(a^*,0,2\pi,a^*)$ for some $a^*\ne 0$. Here, $a$, $b$, and $P$ are continuation variables and $\mu_a$ is a continuation parameter. Since $P$ must be nonzero locally, it follows that $b$ must equal $0$ and, since $a$ must be nonzero locally, that $P$ must equal $2\pi$. Consequently, $a$ must equal $a^*$ if $\mu_a$ is inactive and can vary freely otherwise. It follows that for inactive $\mu_a$, $n=3$, $m=4$, and $d=0$, while for active $\mu_a$, $n=4$, $m=4$, and $d=1$. In neither case does $d$ equal the dimensional deficit $n-m$.
+
+A candidate regularization of the form \eqref{eq:regular} is given by the equations
+\begin{equation}
+a(\cos P-1)+b\sin P+w=0,\,P(b(\cos P-1)-a\sin P)=0,\,Pb=0,\,a-\mu_a=0
+\end{equation}
+in terms of the continuation variables $(a,b,P,w)$ and continuation parameter $\mu_a$. In this case, $d=n-m$ whether $\mu_a$ is active or inactive. Moreover, the Jacobian with respect to $(a,b,P,w,\mu_a)$ evaluated at $(a,b,P,w,\mu_a)=(a^*,0,2\pi,0,a^*)$ equals
+\begin{equation}
+\begin{pmatrix}0 & 0 & 0 & 1 & 0\\0 & 0 & -2\pi a^* & 0 & 0\\0 & 2\pi & 0 & 0 & 0\\1 & 0 & 0 & 0 & -1\end{pmatrix}
+\end{equation}
+and is full rank whether the last column is included (active $\mu_a$) or not (inactive $\mu_a)$.
+
+We encode this problem in \textsc{coco} using the function definition
+ \begin{lstlisting}[language=coco-highlight]
+>> eqs = @(a,b,P) [a*(cos(P)-1)+b*sin(P); P*(b*(cos(P)-1)-a*sin(P)); P*b];
+\end{lstlisting}
+and the following construction
+ \begin{lstlisting}[language=coco-highlight]
+>> prob = coco_prob();
+>> prob = coco_add_func(prob, 'linosc', ...
+     @(p,d,u) deal(d, eqs(u(1),u(2),u(3))), [], 'zero', 'u0', [1; 0.1; 6]);
+>> prob = coco_add_pars(prob, 'inactive_pars', 1, 'a', 'inactive');
+>> prob = coco_add_pars(prob, 'active_pars', 2:3, {'b' 'P'}, 'active');
+\end{lstlisting}
+which defines two additional active continuation parameters associated with the variables $b$ and $P$. As suggested by the theoretical analysis, the command
+ \begin{lstlisting}[language=coco-highlight]
+>> coco(prob, 'run', [], 0, {'b' 'P'})
+\end{lstlisting}
+results in a convergent set of iterations to the locally unique solution $(a,b,P)=(1,0,2\pi)$. Similarly, the command
+ \begin{lstlisting}[language=coco-highlight]
+>> coco(prob, 'run', [], 1, {'a', 'b', 'P'})
+\end{lstlisting}
+performs continuation along the solution manifold $(b,P)=(0,2\pi)$ with varying $a=\mu_a$.
+
+In contrast, the command
+ \begin{lstlisting}[language=coco-highlight]
+>> coco(prob, 'run', [], 0, {'a', 'b', 'P'})
+\end{lstlisting}
+results in a convergent set of iterations to the solution $(a,b,P)=(0,0,6)$. Here, $k=1$ inactive continuation parameters are included in the call to the \mcode{coco} entry-point function, and $d=0$, $n'=3$, and $m=4$. It follows that $\min(k,d-n'+m)=1$ and the continuation parameter \mcode{'a'} is therefore released such that $n=4$ and $d-n+m=0$ (i.e., the matrix $S$ is excluded from \eqref{eq:regular}). Since the Jacobian of \eqref{eq:singularex} with respect to $(a,b,P,\mu_a)$ evaluated at $(a,b,P,\mu_a)=(a^*,0,2\pi,a^*)$ equals
+\begin{equation}
+\begin{pmatrix}
+0 & 0 & 0 & 0\\0 & 0 & -2\pi a^* & 0\\0 & 2\pi & 0 & 0\\1 & 0 & 0 & -1
+\end{pmatrix}
+\end{equation}
+the regularity condition is not satisfied. Instead, any initial solution guess $(a_0,b_0,P_0,\mu_{a,0})$ for which the Jacobian is invertible is mapped under a full Newton step to $(0,0,P_0,0)$ as confirmed by the following modified call
+ \begin{lstlisting}[language=coco-highlight]
+>> prob = coco_set(prob, 'corr', 'MaxStep', inf);
+>> coco(prob, 'run', [], 0, {'a', 'b', 'P'})
+\end{lstlisting}
+
+As a second example, consider the computation of the frequency-amplitude relationship along a branch of periodic orbits of the nonlinear oscillator
+\begin{equation}
+\ddot{x}+\delta\dot{x}+x+x^3=0
+\end{equation}
+when $\delta=0$. With $E=\dot{x}^2+x^2+x^4/2$, it follows that $\dot{E}=-2\delta \dot{x}^2$, i.e., that non-vanishing periodic solutions are only possible when $\delta=0$ and then coincide in state-space with the level sets of $E$, all of which are closed.
+An encoding of the corresponding vector field is given in the function \mcode{bistable}.
+ \begin{lstlisting}[language=coco-highlight]
+function y = bistable(x, p)
+
+x1 = x(1,:);
+x2 = x(2,:);
+p1 = p(1,:);
+
+y(1,:) = x2;
+y(2,:) = -p1.*x2-x1-x1.^3;
+
+end
+\end{lstlisting}
+The commands below then use the \mcode{ode\_isol2po} constructor to encode a continuation problem with overall dimensional deficit equal to $0$ in the continuation problem structure \mcode{prob}.
+ \begin{lstlisting}[language=coco-highlight]
+>> period = 6;
+>> t0 = (0:period/20:period)';
+>> x0 = 0.35*[sin(2*pi/period*t0) cos(2*pi/period*t0)];
+>> prob = coco_prob();
+>> prob = coco_set(prob, 'po', 'bifus', 'off');
+>> prob = ode_isol2po(prob, '', @bistable, t0, x0, 'd', 0);
+\end{lstlisting}
+Here, the initially inactive continuation parameter \mcode{'d'} represents $\delta$, while the initially active continuation parameter \mcode{'po.period'} represents the period.
+
+Since the non-vanishing periodic orbits lie on a one-dimensional solution manifold, while the dimensional deficit equals $0$, it follows that the Jacobian of the continuation problem must have a rank loss of one. Continuation along this manifold is achieved with the commands
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_set(prob, 'cont', 'NAdapt', 1, 'norm', inf);
+>> coco(prob, 'backbone', [], 1, 'po.period', [2*pi/1.6 2*pi/0.7]);
+\end{lstlisting}
+suggesting that a regularization of the form \eqref{eq:regular} exists. Further evidence for this is obtained using the command
+\begin{lstlisting}[language=coco-highlight]
+>> coco(prob, 'backbone', [], 1, {'po.period' 'd'}, [2*pi/1.6 2*pi/0.7]);
+\end{lstlisting}
+where the continuation parameter \mcode{'d'} is released prior to continuation producing a system for which the matrix $S$ must be empty.
+
+Following execution of the command
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_xchg_pars(prob, 'd', 'po.period');
+\end{lstlisting}
+the continuation parameters \mcode{'d'} and \mcode{'po.period'} are considered active and inactive, respectively. While the dimensional deficit remains equal to $0$, the solution manifold is now an isolated point, i.e., $d=0$. The commands
+\begin{lstlisting}[language=coco-highlight]
+>> prob = coco_set(prob, 'cont', 'NAdapt', 0);
+>> coco(prob, 'run1', [], 0, {'d' 'po.period'});
+\end{lstlisting}
+result in no further releasing of inactive continuation parameters prior to application of a nonlinear solver that locates the unique solution with period equal to $6$.
+
+%%%%%%%%%%
+\section{Data processing and visualization}
+
+During continuation, two forms of data are stored to disk for later processing. Small amounts of data associated with all successfully located points on the solution manifold are recorded in a single location in order to enable analysis and visualization of properties of the solution manifold as a whole. Large amounts of data associated with each of a sampled selection of successfully located points along the solution manifold are recorded in a sequence of separate files in order to enable analysis and visualization of properties of individual solutions.
+
+We refer to data describing properties of the solution manifold as a whole, rather than a subset of individual points, as \textit{bifurcation data} and use the abbreviation \mcode{bd} in associated \textsc{coco} commands and scripts. For example, to extract saved bifurcation data for further processing, we use the \mcode{coco_bd_col} utility, as shown below.
+ \begin{lstlisting}[language=coco-highlight]
+>> bd = coco_bd_read(run);
+\end{lstlisting}
+Here, \mcode{run} is the run identifier associated with the stored data. This command assigns a rectangular cell array to \mcode{bd}. This array includes a single header row with string labels identifying the content of each column. The \mcode{coco_bd_col} utility can be used to extract data from the column with string label \mcode{name}, as shown below.
+ \begin{lstlisting}[language=coco-highlight]
+>> coco_bd_col(bd, name)
+\end{lstlisting}
+Data associated with multiple columns can be extracted by replacing \mcode{name} with a cell array of corresponding string labels.
+
+The utility \mcode{coco_plot_bd} can be used to visualize bifurcation data associated with a specific continuation run. A call to \mcode{coco_plot_bd} must adhere to the following argument syntax:
+ \begin{lstlisting}[language=coco-highlight]
+[theme], run, [col1, [idx1], [col2, [idx2], [col3, [idx3]]]]
+\end{lstlisting}
+Here, the \mcode{run} argument is the run identifier associated with the stored bifurcation data. In the absence of any further arguments, \mcode{coco_plot_bd} executes a behavior defined by a default visualization theme. 
+
+As an example, the \mcode{coco_plot_theme} utility defines the default visualization theme for a family of solution points that are not associated with a particular toolbox. The command
+\begin{lstlisting}[language=coco-highlight]
+>> thm = coco_plot_theme();
+\end{lstlisting}
+assigns the corresponding struct to the \mcode{thm} variable. For a family of solution points associated with a particular toolbox, a toolbox-specific visualization theme defines the default behavior. The optional argument \mcode{theme} in the call to \mcode{coco_plot_bd} is a struct whose fields substitute for, or add to, the content of the default visualization theme, in order to override the default behavior or define new behaviors. To use a toolbox-specific visualization theme associated with a toolbox instance in a composite continuation problem, assign the corresponding object instance identifier to the \mcode{oid} field of the \mcode{theme} argument.
+
+By default, \mcode{coco_plot_bd} produces a two-dimensional graph of simultaneous variations in two quantities that are each computable from the bifurcation data. As an example, the command below generates a two-dimensional plot of a piecewise-linear interpolant connecting points with coordinates given by data in the \mcode{'col1'} and \mcode{'col2'} columns of the bifurcation data cell array.
+\begin{lstlisting}[language=coco-highlight]
+>> coco_plot_bd(run, 'col1', 'col2')
+\end{lstlisting}
+Similarly, the command below generates a three-dimensional plot of a piecewise-linear interpolant connecting points with coordinates given by data in the \mcode{'col1'},  \mcode{'col2'}, and \mcode{'col3'} columns of the bifurcation data cell array.
+\begin{lstlisting}[language=coco-highlight]
+>> coco_plot_bd(run, 'col1', 'col2', 'col3')
+\end{lstlisting}
+In the case of a two-dimensional plot, it is possible to omit both or only the second column labels, provided that the visualization theme includes default labels in the \mcode{bd.col1} and/or \mcode{bd.col2} fields, respectively. Notably, for the default visualization theme defined by \mcode{coco_plot_theme}, the fields \mcode{bd.col1} and \mcode{bd.col2} are empty.
+
+In general, the arguments \mcode{col1}, \mcode{col2} and, in the case of three-dimensional graphs, \mcode{col3} are either single string labels or cell arrays of string labels associated with columns of the bifurcation data cell array with numerical content. The optional arguments \mcode{idx1}, \mcode{idx2}, and \mcode{idx3} are either single integers or handles to vectorized functions. In the former case, the preceding argument must be a single string label. The integer then defines a component of the numerical array in the corresponding column of the bifurcation data. In the command
+\begin{lstlisting}[language=coco-highlight]
+>> coco_plot_bd(run, 'col1', 3, 'col2')
+\end{lstlisting}
+the integer $3$ indicates that the horizontal coordinate is given by the third component of the data in each row of the \mcode{'col1'} column. In contrast, the command
+\begin{lstlisting}[language=coco-highlight]
+>> coco_plot_bd(run, 'col1', 'col2')
+\end{lstlisting}
+is equivalent to the command
+\begin{lstlisting}[language=coco-highlight]
+>> coco_plot_bd(run, 'col1', 1, 'col2', 1)
+\end{lstlisting}
+while the command
+\begin{lstlisting}[language=coco-highlight]
+>> coco_plot_bd(run, 'col1', 'col1')
+\end{lstlisting}
+is equivalent to the command
+\begin{lstlisting}[language=coco-highlight]
+>> coco_plot_bd(run, 'col1', 1, 'col1', 2)
+\end{lstlisting}
+which, of course, throws an error if the \mcode{'col1'} column contains scalar data.
+
+In the case that the \mcode{idx1}, \mcode{idx2}, or \mcode{idx3} optional argument is a function handle, then the number of inputs to this function must equal the number of string labels in the preceding argument. The corresponding function must return a one-dimensional array obtained by applying a suitable operation to the content of the corresponding columns of the bifurcation data. As an example, in the command
+\begin{lstlisting}[language=coco-highlight]
+>> coco_plot_bd(run, 'col1', 3, {'col2', 'col3'}, @(x,y) x+y)
+\end{lstlisting}
+the fourth and fifth arguments indicate that the vertical coordinate is given by the sum of the data in the \mcode{'col2'} and \mcode{'col3'} columns.
+
+The utility \mcode{coco_plot_sol} provides an interface to toolbox-specific visualization of properties of individual solutions from a specific continuation run. A call to \mcode{coco_plot_sol} must adhere to the following argument syntax:
+\begin{lstlisting}[language=coco-highlight]
+[theme], run, [labs], oid, [oidx], [col1, [idx1], [col2, [idx2], [col3, [idx3]]]]
+\end{lstlisting}
+The meaning of the \mcode{run} and \mcode{theme} arguments is identical to the case of \mcode{coco_plot_bd}. To visualize the properties associated with a subset of solutions along the solution manifold, the corresponding solution labels are assigned to the optional \mcode{labs} argument. In its absence, all stored solutions are visualized in the same plot.
+
+To visualize solution properties associated with a single toolbox instances in a composite continuation problem, assign the corresponding object identifier to the \mcode{oid} argument. To visualize solution properties associated with multiple instances of the same toolbox with object identifiers of the form \mcode{'oid1'}, \mcode{'oid2'}, and so on, assign the string \mcode{'oid'} to the \mcode{oid} argument and the corresponding integer array to the optional \mcode{oidx} argument.
+
+The behavior of \mcode{coco_plot_sol} is determined by a toolbox-specific visualization theme. Such a visualization theme defines string labels that may be used in the \mcode{col1}, \mcode{col2} and, as applicable, \mcode{col3} arguments, in addition to the headers for columns of bifurcation data. As an example, the \mcode{'coll'} toolbox visualization theme supports use of the \mcode{'t'} and \mcode{'x'} string labels in order to generate two- or three-dimensional visualizations of the spacetime trajectory segment. The optional \mcode{idx1}, \mcode{idx2}, and \mcode{idx3} arguments play the same role for \mcode{coco_plot_sol} as in the case of \mcode{coco_plot_bd}. Examples of their use are included with the toolbox demos.
+
+An alternative use of \mcode{coco_plot_sol} relies on assigning a function handle to the \mcode{plot_sol} field of the optional \mcode{theme} argument. An example of such use is demonstrated in the \texttt{pdeeig} demo of the \mcode{'ep'} toolbox. \\
+\medskip
+
+\begin{exercises}
+\item Use an example to show that the command
+\begin{lstlisting}[language=coco-highlight]
+>> coco_plot_bd(run, 'col1', 'col2', 'col2')
+\end{lstlisting}
+is equivalent to the command
+\begin{lstlisting}[language=coco-highlight]
+>> coco_plot_bd(run, 'col1', 1, 'col2', 1, 'col2', 2)
+\end{lstlisting}
+
+\item Use an example to show that the command
+\begin{lstlisting}[language=coco-highlight]
+>> coco_plot_bd(run, 'col1', @(x) x(1,:) 'col1', @(x) x(2,:))
+\end{lstlisting}
+is equivalent to the command
+\begin{lstlisting}[language=coco-highlight]
+>> coco_plot_bd(run, 'col1', 'col1')
+\end{lstlisting}
+
+
+\item The \mcode{coco_plot_bd} utility uses the \mcode{lspec}, \mcode{ustab}, \mcode{ustabfun}, and \mcode{usept} properties of the visualize theme to highlight different parts of a solution manifold according to properties of the corresponding solutions. Investigate the corresponding implementation in the \mcode{'ep'} and \mcode{'po'} toolbox visualization themes, and construct an example in which three different line styles are used to differentiate portions of the solution manifold of a continuation problem.
+
+\end{exercises}
+
+%The utility \mcode{coco_bd_labs} Points along the solution manifold designated by particular point labels may
+%
+%
+%
+%
+%A call to the \mcode{coco} entry-point function may result in changes to the \textsc{matlab} workspace, provided that an output argument is included with this call. Upon execution, this output argument contains a cell array of small amounts of data associated with each successful continuation step and the corresponding point on the solution manifold. In addition to default information assigned to this array by the \textsc{coco} core, user-defined slot functions may be defined that respond to the \mcode{'bddat'} signal and assign additional data to each row of the cell array.
+
+
+
+
+
+
+\end{document}
+

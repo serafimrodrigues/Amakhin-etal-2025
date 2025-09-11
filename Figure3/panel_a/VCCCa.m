@@ -1,34 +1,35 @@
-function f = VCCCa(t,s)
+function f = VCCCa(s,p)
 
 % variables of the joint VC and CC model
 % V, x1, Vh : VC protocol with slow variation in the feedback ref. sig.
-Vvc  = s(1);
-x1vc = s(2);
-Vh   = s(3);
-Vcc  = s(4);
-x1cc = s(5);
-Ih   = s(6);
-
-% parameters 
-VK=-84.0;VL=-60.0;VCa=120.0;gL=2.0;C=20.0;V1=-1.2;V2=18.0;
-eps=0.067;gCa=4.0;V3=12.0;V4=17.4;gc=-40.0;epsVvc=0.01;gK=12.0;epsVcc=0.01;
-
+is_sim=size(s,1)==6;
+if is_sim
+    [Vvc,x1vc,Vh,Vcc,x1cc,Ih]=deal(s(1),s(2),s(3),s(4),s(5),s(6));
+else
+    [Vcc,x1cc,Ih]=deal(s(1,:),s(2,:),s(3,:));
+end
+if is_sim
+    dVvc=rhs(Vvc,x1vc,setfield(p,'epsh',p.epsVvc),p.gc*(Vvc-Vh));
+    dVcc=rhs(Vcc,x1cc,setfield(p,'epsh',p.epsVcc),Ih);
+    f=[dVvc;dVcc];
+else
+    f0=rhs(Vcc,x1cc,setfield(p,'epsh',p.epsVcc),Ih);
+    f=f0(1:2,:);
+end
+% 
+% % complete right-hand side of the model
+% f = [fVvc;fx1vc;fVh;fVcc;fx1cc;fIh];
+end
+function dVx=rhs(V,x1,p,Iin)
+[  V1,  V2,  V3,  V4,  gL,  VL,  gK,  VK,  gCa,  VCa,  C,  eps,  epsh]=deal(...
+ p.V1,p.V2,p.V3,p.V4,p.gL,p.VL,p.gK,p.VK,p.gCa,p.VCa,p.C,p.eps,p.epsh);
 % (in)activation functions
-minfVvc  = 0.5*(1+tanh((Vvc-V1)/V2));
-x1infVvc = 0.5*(1+tanh((Vvc-V3)/V4));
-taux1Vvc = 1/cosh((Vvc-V3)/(2*V4));
-minfVcc  = 0.5*(1+tanh((Vcc-V1)/V2));
-x1infVcc = 0.5*(1+tanh((Vcc-V3)/V4));
-taux1Vcc = 1/cosh((Vcc-V3)/(2*V4));
-
+minfV  = 0.5*(1+tanh((V-V1)/V2));
+x1infV = 0.5*(1+tanh((V-V3)/V4));
+taux1V = 1./cosh((V-V3)/(2*V4));
 % right-hand side of the system corresponding to the VC protocol
-fVvc  = (-gL*(Vvc-VL)-gK*x1vc*(Vvc-VK)-gCa*minfVvc*(Vvc-VCa)+gc*(Vvc-Vh))/C;
-fx1vc = eps*(x1infVvc-x1vc)/taux1Vvc;
-fVh   = epsVvc;
-% right-hand side of the system corresponding to the CC protocol
-fVcc  = (-gL*(Vcc-VL)-gK*x1cc*(Vcc-VK)-gCa*minfVcc*(Vcc-VCa)+Ih)/C;
-fx1cc = eps*(x1infVcc-x1cc)/taux1Vcc;
-fIh   = epsVcc;
-
-% complete right-hand side of the model
-f = [fVvc;fx1vc;fVh;fVcc;fx1cc;fIh];
+fV  = (-gL*(V-VL)-gK*x1.*(V-VK)-gCa.*minfV.*(V-VCa)+Iin)/C;
+fx1 = eps*(x1infV-x1)./taux1V;
+fh   = epsh+0*V;
+dVx=[fV;fx1;fh];
+end

@@ -1,0 +1,25 @@
+\contentsline {section}{\numberline {1}Introduction}{2}{section.1}%
+\contentsline {section}{\numberline {2}Starting \textsc {coco}}{2}{section.2}%
+\contentsline {section}{\numberline {3}Bifurcations of equilibria}{3}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Detecting saddle-node points}{3}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Detecting branch points}{5}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Continuing saddle-node points}{6}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Continuing Hopf bifurcations}{8}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Performing parameter sweeps}{10}{subsection.3.5}%
+\contentsline {section}{\numberline {4}Bifurcations of periodic orbits}{14}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Continuing from Hopf bifurcations}{14}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Finding isolated curves and branch points}{17}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}A web of bifurcations}{22}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Post-processing and analysis}{29}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Bifurcation data}{29}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Individual solutions}{33}{subsection.5.2}%
+\contentsline {section}{\numberline {6}Function definitions}{35}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Vector fields}{35}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Partial derivatives}{37}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Directional derivatives}{39}{subsection.6.3}%
+\contentsline {section}{\numberline {7}User-initiated enhancements}{43}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Monitoring properties of equilibria}{43}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Continuing generalized Hopf bifurcations}{47}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Monitoring properties of periodic orbits}{51}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Tracking and constraining orbit maxima}{54}{subsection.7.4}%
+\contentsline {section}{\numberline {8}Outlook}{60}{section.8}%

@@ -2,18 +2,19 @@
 % "Observing hidden neuronal states in experiments" by Amakhin et al.
 %  m-file to reproduce Fig.4
 %--------------------------------------------------------------------
-
+% parameters
+[p.VK,  p.VL, p.VCa, p.gL, p.C, p.V1, p.V2, p.eps, p.gCa, p.V3, p.V4, p.gc, p.epsVvc, p.gK, p.epsVcc]=deal(...
+-84.0, -60.0, 120.0, 2.0, 20.0, -1.2, 18.0, 0.04,   4.4,   2.0, 30.0,-150.0,  0.01,   12.0,  0.01);
 %%% accuracy of the discretisation of the ODE
 options=odeset('RelTol',1e-08,'AbsTol',1e-08);
 
 %%% simulation
 tspan=[0 40000];
 ini_cond=[-43.0 0.000103 -42.7 -43.0 0.000103 50.0];
-[t,s]=ode45(@(t,s) VCCC(t,s),tspan,ini_cond,options);
+[t,s]=ode45(@(t,s) VCCC(s,p),tspan,ini_cond,options);
 
 %%% form Ivc
-gc=-150.0;
-Ivc=gc*(s(:,1)-s(:,3));
+Ivc=p.gc*(s(:,1)-s(:,3));
 
 %%% define colors
 clr=lines();

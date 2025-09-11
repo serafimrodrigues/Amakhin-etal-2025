@@ -7,9 +7,11 @@
 options=odeset('RelTol',1e-08,'AbsTol',1e-08);
 
 %%% simulation
+[p.VK,  p.VL, p.VCa, p.gL, p.C, p.V1, p.V2, p.eps, p.gCa, p.V3, p.V4, p.gc, p.epsVvc, p.gK, p.epsVcc]=deal(...
+-84.0, -60.0, 120.0, 2.0, 20.0, -1.2, 18.0, 0.067, 4.0,   12.0, 17.4,-40.0,  0.01,   12.0,  0.01);
 tspan=[0 30000];
 ini_cond=[-69.0 0.000103 -69.75 -69.9 1000.0 -30.0];
-[t,s]=ode45(@(t,s) VCCCa(t,s),tspan,ini_cond,options);
+[t,s]=ode45(@(t,s) VCCCa(s,p),tspan,ini_cond,options);
 
 %%% form Ivc
 gc=-40.0;

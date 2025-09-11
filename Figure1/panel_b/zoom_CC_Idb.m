@@ -26,9 +26,11 @@ vcrun=struct('I',vcar(:,ip.I),'V',vcar(:,ip.V),'t',vcar(:,ip.t));
 wsize=1500;
 thresholds=struct('spike',25,'isi',100e-3,'si',0.5);
 [i_cc_hopf,i_vc_hopf,i_vc_unst,ccrun.Vs]=match_spikes(ccrun,vcrun,wsize*mean(diff(vcrun.t)),thresholds);
-%% % Plot CC after smoothing
 wsize=1500;
 ccrun.Is=smoothdata(ccrun.I,'movmean',wsize);
+[weqsize,eqthresh]=deal(0.01,0.05);
+cceq=match_cc_stst(ccrun,weqsize,eqthresh);
+%% % Plot CC after smoothing
 Idb=ccrun.Is(i_cc_hopf(2));
 zoom_rg=10*[-1,1];
 sel=ccrun.Is>Idb+zoom_rg(1)&ccrun.Is<Idb+zoom_rg(2);
@@ -37,12 +39,13 @@ fig=figure(3);clf;
 txt={'Fontsize',16};
 ltx=[{'Interpreter','LaTeX'},txt];
 set(gcf,'color','white');
-pcc=plot(ccrun.Is(sel),ccrun.V(sel),'color',[1 0.6 0.4],'DisplayName','$V(I_\mathrm{h})$');
+pcc=plot(ccrun.Is(sel),ccrun.V(sel),'color',[1 0.6 0.4],'DisplayName','$V(I_\mathrm{h})$ (spike)');
 hold on;
+peq=plot(cceq.Is(sel),cceq.V(sel),'color',[1 0.5 0.3],'LineWidth',2,'DisplayName','$V(I_\mathrm{h})$ (slow)');
 pidb=xline(Idb,':','linewidth',2,'DisplayName','$I_\mathrm{db}$')
 set(gca,'FontName','Courier','FontWeight','bold',txt{:});
 axis('tight');
-lg=legend([pcc,pidb],ltx{:})
+lg=legend([pcc,peq,pidb],ltx{:})
 ylabel('$V_\mathrm{cc}$ (mV)',ltx{:});
 xlabel('$I_\mathrm{h}$\,(pA)',ltx{:});
 %%
