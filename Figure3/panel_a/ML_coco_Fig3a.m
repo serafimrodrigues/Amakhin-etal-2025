@@ -1,4 +1,9 @@
-%% check 1d bif diagram with coco
+%--------------------------------------------------------------------
+% "Observing hidden neuronal states in experiments" by Amakhin et al.
+%  m-file to produce bifurcation diagram for Fig.3(a)
+%--------------------------------------------------------------------
+%% check 1d bif diagram for Figure 3a with coco
+startup_coco([pwd(),'/../../coco_r3328']);
 clear
 format compact
 %% Parameters (when setting eps=0.005 the Hopf bifurcation becomes more singular)
@@ -62,7 +67,7 @@ xlabel('time $t$',ltx{:});
 ylabel('$V_\mathrm{cc}$',ltx{:})
 set(gca,txt{:});
 title(gca,sprintf('time profile at $I_h=$%5.2f',po_ex.p(1)),ltx{:})
-fig.Position(3:4)=[900,300];
+fig.Position(3:4)=[900,400];
 %
 %%% plot the solution: (Vh~V) vs. (Ivc,Ih)
 %%% form Ivc

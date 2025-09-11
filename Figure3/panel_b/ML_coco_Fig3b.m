@@ -1,4 +1,9 @@
-%% check 1d bif diagram with coco
+%--------------------------------------------------------------------
+% "Observing hidden neuronal states in experiments" by Amakhin et al.
+%  m-file to produce bifurcation diagram for Fig.3(b)
+%--------------------------------------------------------------------
+%% check 1d bif diagram for Figure 3a with coco
+startup_coco([pwd(),'/../../coco_r3328']);
 clear
 format compact
 %% Parameters (when setting eps=0.005 the Hopf bifurcation becomes more singular)
