@@ -45,7 +45,7 @@ theme_po = struct();
 theme_po.lspec = {{'k-', 'LineWidth', 1}, {'k--', 'LineWidth', 1}};
 theme_po.special = {'SN'};
 theme_po.SN={'ko','MarkerFaceColor',clr(1,:),'MarkerSize',8,'DisplayName','P5 Fold'};
-fig=figure(2);clf;tl=tiledlayout(2,3,'TileSpacing','tight');
+fig=figure(4);fig.Name='3b';clf;tl=tiledlayout(2,3,'TileSpacing','tight');
 nexttile([2,2]);axbif=gca;
 plot(axbif,s2(:,8),s2(:,5),'color',[1 0.6 0.4],'linewidth',1.5);hold on;
 coco_plot_bd(theme_po, 'po_run', 'Ih','MIN(x)');
@@ -93,23 +93,40 @@ shopf='s';
 cfold=[0,1,0];
 sfold='s';
 bg=cm*1/3+2/3;
+lw={'LineWidth',1.5};
+mw={'MarkerSize',7,'MarkerEdgeColor','k'};
+
 %%% plot the solution: (Vh~V) vs. (Ivc,Ih)
-rg1=1:indfold(1);
-plot(axbif,I2vc(rg1,1),s2(rg1,4),'color',cm,'linewidth',1.5);hold on;
-rg2=indvchopf:size(s2,1);
-plot(axbif,I2vc(rg2,1),s2(rg2,4),'color',cm,'linewidth',1.5);hold on;
-rg3=indfold(1):indfold(2);
-plot(axbif,I2vc(rg3,1),s2(rg3,4),'color',cneg,'linewidth',1.5);hold on;
-rg4=indfold(2):indvchopf;
-plot(axbif,I2vc(rg4,1),s2(rg4,4),'color',cunst,'linewidth',1.5);hold on;
-plot(axbif,I2vc(indfold,1),s2(indfold,4),sfold,'MarkerFaceColor',cfold,'MarkerSize',5,'MarkerEdgeColor','k');hold on;
-plot(axbif,I2vc(indvchopf,1),s2(indvchopf,4),sfold,'MarkerFaceColor',chopf,'MarkerSize',5,'MarkerEdgeColor','k');hold on;
-%%% LAY-OUT
-set(gcf,'color','white');
-set(axbif,'FontName','Courier','FontSize',16,'FontWeight','bold');
 axis(axbif,[-10 40 -100 40]);
 set(axbif,'XTick', -10:10:40);
 set(axbif,'YTick',-100:35:40);
+rg1=1:indfold(1);
+plot(axbif,I2vc(rg1,1),s2(rg1,4),'color',cm,lw{:});hold(axbif,'on');
+rg2=indvchopf:size(s2,1);
+plot(axbif,I2vc(rg2,1),s2(rg2,4),'color',cm,lw{:});
+rg3=indfold(1):indfold(2);
+plot(axbif,I2vc(rg3,1),s2(rg3,4),'color',cneg,lw{:});
+rg4=indfold(2):indvchopf;
+plot(axbif,I2vc(rg4,1),s2(rg4,4),'color',cunst,lw{:});
+plot(axbif,I2vc(indfold,1),s2(indfold,4),sfold,'MarkerFaceColor',cfold,mw{:});
+plot(axbif,I2vc(indvchopf,1),s2(indvchopf,4),sfold,'MarkerFaceColor',chopf,mw{:});
+% add Idb
+Idb=I2vc(indvchopf,1);
+plot(axbif,Idb*[1,1],[axbif.YLim(1),s2(indvchopf,4)],'k:',lw{:});
+axbif.XTick=sort([linspace(axbif.XLim(1),axbif.XLim(2),6),round(Idb)]);
+axbif.XTickLabel{str2double(axbif.XTickLabel)==round(Idb)}='$I_\mathrm{db}$';
+axbif.TickLabelInterpreter='latex';
+% add legend entries
+fpmark=findobj(axbif,'MarkerFaceColor',[0,1,0]);
+set(fpmark(1),'DisplayName','fold est. from VC');
+hbmark=findobj(axbif,'MarkerFaceColor',clr(2,:));
+set(hbmark(1),'DisplayName','exact Hopf bif.');
+%psnmark=findobj(axbif,'MarkerFaceColor',clr(1,:));
+%set(psnmark(1),'DisplayName','exact SNLC');
+legend(axbif,[hbmark(1),fpmark(1)],'Location','south',ltx{:});
+%%% LAY-OUT
+set(gcf,'color','white');
+set(axbif,'FontName','Courier','FontSize',16,'FontWeight','bold');
 ylabel(axbif,'$V_\mathrm{h}\approx V,\;V_\mathrm{cc}$ (mV)','Interpreter','latex');
 xlabel(axbif,'$I_\mathrm{vc},\;I_\mathrm{h}$\,(pA)','Interpreter','latex');
 

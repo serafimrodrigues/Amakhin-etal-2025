@@ -40,7 +40,7 @@ theme_po = struct();
 theme_po.lspec = {{'k-', 'LineWidth', 1}, {'k--', 'LineWidth', 1}};
 theme_po.special = {'SN'};
 theme_po.SN={'ko','MarkerFaceColor',clr(1,:),'MarkerSize',8,'DisplayName','P5 Fold'};
-fig=figure(2);clf;tl=tiledlayout(2,3,'TileSpacing','tight');
+fig=figure(5);fig.Name='4';clf;tl=tiledlayout(2,3,'TileSpacing','tight');
 nexttile([2,2]);axbif=gca;
 plot(axbif,s(:,6),s(:,4),'color',[1 0.6 0.4],'linewidth',1.5);hold on;
 coco_plot_bd(theme_po, 'po_run', 'Ih','MIN(x)');
@@ -84,15 +84,28 @@ bg=cm*1/3+2/3;
 
 %%% plot the solution: (Vh~V) vs. (Ivc,Ih)
 %%% plot the solution: (Vh~V) vs. (Ivc,Ih)
-plot(axbif,Ivc(500:19500,1),s(500:19500,3),    'color',cm,         'linewidth',1.5);hold on;
-plot(axbif,Ivc(19500:47150,1),s(19500:47150,3),'color',cunst,      'linewidth',1.5);
-plot(axbif,Ivc(47150:50500,1),s(47150:50500,3),'color',cm,         'linewidth',1.5);hold on;
-plot(axbif,Ivc(19500,1),s(19500,3),shopf,'MarkerFaceColor',chopf,'MarkerSize',5,'MarkerEdgeColor','k');hold on;
-plot(axbif,Ivc(47150,1),s(47150,3),shopf,'MarkerFaceColor',chopf,'MarkerSize',5,'MarkerEdgeColor','k');hold on;
-
+lw={'LineWidth',1.5};
+mw={'MarkerSize',7,'MarkerEdgeColor','k'};
+axis(axbif,[50 450 -70 40]);
+plot(axbif,Ivc(500:19500,1),s(500:19500,3),    'color',cm,lw{:});hold(axbif,'on');
+plot(axbif,Ivc(19500:47150,1),s(19500:47150,3),'color',cunst,lw{:});
+plot(axbif,Ivc(47150:50500,1),s(47150:50500,3),'color',cm,lw{:});
+plot(axbif,Ivc(19500,1),s(19500,3),shopf,'MarkerFaceColor',chopf,mw{:});
+Idb=Ivc(47150,1);
+plot(axbif,Idb,s(47150,3),shopf,'MarkerFaceColor',chopf,mw{:});
+% add Idb
+plot(axbif,Idb*[1,1],[axbif.YLim(1),s(47150,3)],'k:',lw{:});
+axbif.XTick=sort([axbif.XLim(1):100:axbif.XLim(2),round(Idb)]);
+axbif.XTickLabel{str2double(axbif.XTickLabel)==round(Idb)}='$I_\mathrm{db}$';
+axbif.TickLabelInterpreter='latex';
+% add legend entries
+hbmark=findobj(axbif,'MarkerFaceColor',clr(2,:));
+set(hbmark(1),'DisplayName','exact Hopf bif.');
+psnmark=findobj(axbif,'MarkerFaceColor',clr(1,:));
+set(psnmark(1),'DisplayName','exact SNLC');
+legend(axbif,[hbmark(1),psnmark(1)],'Location','south',ltx{:});
 %%% LAY-OUT
 set(fig,'color','white');
-axis(axbif,[50 450 -70 40]);
 ylabel(axbif,'$V_\mathrm{h}\approx V,\;V_\mathrm{cc}$ (mV)','Interpreter','latex');
 xlabel(axbif,'$I_\mathrm{vc},\;I_\mathrm{h}$\,(pA)','Interpreter','latex');
 
