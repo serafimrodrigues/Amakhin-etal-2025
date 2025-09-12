@@ -50,5 +50,5 @@ ylabel('$V_\mathrm{cc}$ (mV)',ltx{:});
 xlabel('$I_\mathrm{h}$\,(pA)',ltx{:});
 %%
 fig.Position(3:4)=[560,420];
-folder=[pwd(),'/../../../PLoS-amakhin/PLoS revision/'];
+folder=[pwd(),'/../../figures/'];
 exportgraphics(fig,[folder,'FigureSzoom_Idb.pdf'],'ContentType','vector');

@@ -1,9 +1,9 @@
 %--------------------------------------------------------------------
 % "Observing hidden neuronal states in experiments" by Amakhin et al.
-%  m-file to produce bifurcation diagram for Fig.3(a)
+%  m-file to produce bifurcation diagram for Fig.SI6
 %--------------------------------------------------------------------
 %% check 1d bif diagram for Figure 3a with coco
-startup_coco([pwd(),'/../../coco_r3328']);
+startup_coco([pwd(),'/../coco_r3328']);
 clear
 format compact
 %% Parameters (when setting eps=0.005 the Hopf bifurcation becomes more singular)
@@ -41,7 +41,7 @@ theme_po = struct();
 theme_po.lspec = {{'k-', 'LineWidth', 1}, {'k--', 'LineWidth', 1}};
 theme_po.special = {'SN'};
 theme_po.SN={'ko','MarkerFaceColor',clr(1,:),'MarkerSize',8,'DisplayName','P5 Fold'};
-fig=figure(3);fig.Name='3a';clf;tl=tiledlayout(2,3,'TileSpacing','tight');
+fig=figure(3);fig.Name='Figure SI6';clf;tl=tiledlayout(2,3,'TileSpacing','tight');
 nexttile([2,2]);axbif=gca;
 plot(axbif,s(:,6),s(:,4),'color',[1 0.6 0.4],'linewidth',1.5);hold on;
 coco_plot_bd(theme_po, 'po_run', 'Ih','MIN(x)');
@@ -57,6 +57,7 @@ coco_plot_bd(theme_po, 'po_run', 'Ih','po.period');
 xlabel('$I_h$',ltx{:})
 ylabel('period $T$',ltx{:})
 set(gca,txt{:});
+set(gca,'TickLabelInterpreter','latex',txt{:});
 title(gca,'Firing periods',ltx{:})
 % plot example solution
 nexttile(6);
@@ -66,6 +67,7 @@ plot([po_ex.tbp;po_ex.tbp+po_ex.T],[po_ex.xbp(:,1);po_ex.xbp(:,1)])
 xlabel('time $t$',ltx{:});
 ylabel('$V_\mathrm{cc}$',ltx{:})
 set(gca,txt{:});
+set(gca,'TickLabelInterpreter','latex',txt{:});
 title(gca,sprintf('time profile at $I_h=$%5.2f',po_ex.p(1)),ltx{:})
 fig.Position(3:4)=[900,400];
 %
