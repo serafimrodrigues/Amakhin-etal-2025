@@ -51,4 +51,4 @@ xlabel('$I_\mathrm{h}$\,(pA)',ltx{:});
 %%
 fig.Position(3:4)=[560,420];
 folder=[pwd(),'/../../figures/'];
-exportgraphics(fig,[folder,'FigureSzoom_Idb.pdf'],'ContentType','vector');
+exportgraphics(fig,[folder,'FigureSI9.pdf'],'ContentType','vector');

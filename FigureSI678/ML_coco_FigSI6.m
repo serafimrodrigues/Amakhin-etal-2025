@@ -107,7 +107,7 @@ fpmark=findobj(axbif,'MarkerFaceColor',[0,1,0]);
 set(fpmark(1),'DisplayName','fold est. from VC');
 hbmark=findobj(axbif,'MarkerFaceColor',clr(2,:));
 set(hbmark(1),'DisplayName','exact Hopf bif.');
-psnmark=findobj(axbif,'MarkerFaceColor',clr(1,:));
+psnmark=findobj(axbif,'MarkerFaceColor',clr(1,:),'Marker','o');
 set(psnmark(1),'DisplayName','exact SNLC');
 legend(axbif,[hbmark(1),psnmark(1),fpmark(1)],'Location','south',ltx{:});
 %
