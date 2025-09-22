@@ -61,10 +61,10 @@ title(gca,'Firing periods',ltx{:})
 % plot example solution
 nexttile(6);
 labex=coco_bd_labs('po_run','UZ');
-po_ex=po_read_solution('po_run',10);
+po_ex=po_read_solution('po_run',labex(1));
 plot([po_ex.tbp;po_ex.tbp+po_ex.T],[po_ex.xbp(:,1);po_ex.xbp(:,1)])
 xlabel('time $t$',ltx{:});
-ylabel('$V_\mathrm{cc}$',ltx{:})
+ylabel('$V$',ltx{:})
 set(gca,txt{:});
 set(gca,'TickLabelInterpreter','latex',txt{:});
 title(gca,sprintf('time profile at $I_h=$%5.2f',po_ex.p(1)),ltx{:})

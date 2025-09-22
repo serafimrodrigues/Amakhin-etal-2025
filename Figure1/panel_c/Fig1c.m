@@ -4,109 +4,115 @@
 %--------------------------------------------------------------------
 
 %%% Plot bifurcation diagrams for all cells in one 2d graph
-clear
-s=load('../../mat_files/vcruns.mat','vcruns','ip','xnames');
-[vcruns,ip,xnames]=deal(s.vcruns,s.ip,s.xnames);
-s=load('../../mat_files/ccruns.mat','ccruns');
-ccruns=s.ccruns;
-bd.I=[-Inf,450];
-bd.t=[0,50];
-bd.V=[-Inf,Inf];
-geti=@(x,i)x(i);
-checkbd=@(x,s)x(:,ip.(s))>geti(bd.(s),1)&x(:,ip.(s))<geti(bd.(s),2);
-nruns=length(vcruns);
-%%% filter VC runs with various window lengths
-wsize=[5000,15000,16000];
-for i=nruns:-1:1
-    x=vcruns(i).data;
-    vr{i}=x(checkbd(x,'I')&checkbd(x,'t'),:);
-    for k=1:length(wsize)
-        Is{i,k}=smoothdata(vr{i}(:,ip.I),'movmedian',wsize(k));
-    end
-end
-%%
-runlens=arrayfun(@(i)size(vr{i},1),1:nruns);
-%%% order cells according to "type-II"-ness
-idiff=@(i)[-diff(Is{i,2}).*(diff(Is{i,2})<0).*diff(vr{i}(:,ip.V));0];
-neurontype=arrayfun(@(i)sum(idiff(i)),1:nruns);
-[~,icellorder]=sort(neurontype,'ascend');
-[vr,Is]=deal(vr(icellorder),Is(icellorder,:));
-ccruns=ccruns(icellorder);
-runlens=runlens(icellorder);
-idiff=@(i)[-diff(Is{i,2}).*(diff(Is{i,2})<0).*diff(vr{i}(:,ip.V));0];
-Vall=cellfun(@(v)v(:,ip.V),vr,'UniformOutput',false);
-%%% depolarizing current
-I_depol=[233.154;338.745; 264.282; 365.601; 405.884];
-I_depol=I_depol(icellorder);
-ind_depol=arrayfun(@(i)find(vr{i}(Is{i,1}<I_depol(i),ip.V),1,'last'),1:nruns); 
-%%% Determine other "Hopf" bifurcation, if present 
-icv0_hopflow=arrayfun(@(i)find(ccruns(i).data(:,ip.V)>0,1,'first'),1:nruns);
-icv_hopflow=arrayfun(@(i)find(diff(ccruns(i).data(:,ip.V))<0&...
-    ccruns(i).data(2:end,ip.t)<ccruns(i).data(icv0_hopflow(i),ip.t),1,...
-    'last'),1:nruns);
-ind_hopflow=arrayfun(@(i)find(vr{i}(:,ip.I)>ccruns(i).data(icv_hopflow(i),...
-    ip.I),1,'first'),1:nruns);
-ind_hopf=[ind_hopflow;ind_depol];
-%%% "Fold" location
-idiff3=@(i)[-diff(Is{i,3}).*(diff(Is{i,2})<0).*diff(vr{i}(:,ip.V));0];
-ind_fold1=arrayfun(@(i)find(idiff3(i)>0,1,'first'),1:nruns,'UniformOutput',false);
-ind_fold2=arrayfun(@(i)find(idiff3(i)>0,1,'last'),1:nruns,'UniformOutput',false);
-ind_fold(1,:)=cellfun(@(x)cat(1,x,Inf(1-numel(x),1)),ind_fold1);
-ind_fold(2,:)=cellfun(@(x)cat(1,x,-Inf(1-numel(x),1)),ind_fold2);
-%%% remove low-I "Hopf" if onset of oscillations at "fold", label region of instability
-ind_hopf(1,ind_hopf(1,:)>ind_fold(1,:))=Inf;
-unst=[min(ind_hopf(1,:),ind_fold(1,:));...
-    min(max(ind_hopf(2,:),ind_fold(2,:)),runlens)];
-
-%%% Plot
-fig=figure(2);clf;set(gcf,'color','white');ax=gca;
-hold(ax,'on');
+clear 
+s=load('../../mat_files/processed_runs.mat');
+[ccruns,vcruns]=deal(s.ccruns,s.vcruns);
 clr=lines();
 cm=clr(1,:);
-cunst=[1,0.2,0.2];
-cneg=cunst/2;
-chopf=[1,1,1];
-shopf='s';
-cfold=[0,1,0];
-sfold='s';
-bg=cm*1/3+2/3;
-xbd=[min(cat(1,Is{:}))-30,max(cat(1,Is{:}))+30];
-zbd=[min(cat(1,Vall{:}))-5,max(cat(1,Vall{:}))+3];
+[  cunst,      cund,       cc,          ccslow,    chopf,   cfold]=deal(...
+[1,0.2,0.2], [1,0.9,0], [1,0.6,0.4], [1 0.5 0.3], [1,1,1], [0,1,0]);
+[cneg,bg]=deal(cunst/2,cm*1/3+2/3);
+[shopf,sfold]=deal('s');
+stab_names={...
+    'stable','VC stable';...
+    'ubyfold','$$\frac{\normalsize\mathrm{d}I_\mathrm{vc}}{\normalsize\mathrm{d}V_\mathrm{h}}<0$$';...
+    'undet','VC stability undetermined';...
+    'ubyhopf', sprintf('VC unstable by Hopf')}';
+stab_struct=struct(stab_names{:});
+stab_ic=[stab_names(1,:);num2cell(1:size(stab_names,2))];
+stab_ind=struct(stab_ic{:});
+stab_cl([stab_ind.stable,stab_ind.ubyhopf,stab_ind.ubyfold,stab_ind.undet])=...
+        {          cm,             cunst,          cneg,            cund};
+stab_lw([stab_ind.stable,stab_ind.ubyhopf,stab_ind.ubyfold,stab_ind.undet])=...
+        {          2,              2,               2,              2};
+txt={'FontSize',16,'FontName','Courier','FontWeight','bold'};
+ltx=[txt,{'Interpreter','latex'}];
+ms={'MarkerSize',8};
+%% Plot
+fig=figure(2);clf;set(gcf,'color','white');ax=gca;
+hold(ax,'on');
+xbd=[min(cat(1,vcruns.Is))-30,max(cat(1,vcruns.Is))+30];
+zbd=[min(cat(1,vcruns.Vs))-5,max(cat(1,vcruns.Vs))+3];
+relcoord=@(bd,frac)bd(1)+frac*diff(bd);
+%[labelx,labely]=deal(relcoord(xbd,0.02),relcoord(ybd,0.98));
 bddeco={':','color',(clr(2,:)+1)/2,'linewidth',2};
 cfac=50;
 labelx=400;
 cshift=@(i,v)(i-1)*cfac+v;
+nruns=length(vcruns);
 for i=1:nruns
-    isneg=idiff(i)>0;
-    iunst=unst(1,i):unst(2,i);
-    ismall=vr{i}(:,ip.I)<xbd(1);
-    vr{i}(ismall,ip.I)=NaN;
-    plot(ax,vr{i}(:,ip.I),cshift(i,vr{i}(:,ip.V)),'-','color',bg,'linewidth',1.5);    
-    plot(ax,Is{i,1}(~isneg),cshift(i,vr{i}(~isneg,ip.V)),'.','color',cm,'MarkerSize',6);
-    plot(ax,Is{i,1}(iunst),cshift(i,vr{i}(iunst,ip.V)),'.','color',cunst,'MarkerSize',7);
-    plot(ax,Is{i,1}(isneg),cshift(i,vr{i}(isneg,ip.V)),'.','color',cneg,'MarkerSize',8);
-    iri=find(vr{i}(:,ip.I)>=labelx,1,'first');
-    labely=cshift(i,vr{i}(iri,ip.V));
-    text(ax,labelx,labely,sprintf('%d',i),'VerticalAlignment','top',...
-        'FontName','Courier','FontWeight','bold','FontSize',12);
-    for k=1:2
-        if isfinite(ind_hopf(k,i))
-            plot(ax,Is{i,1}(ind_hopf(k,i)),cshift(i,vr{i}(ind_hopf(k,i),ip.V)),shopf,...
-                'MarkerFaceColor',chopf,'MarkerSize',5,'MarkerEdgeColor','k');
-        end
-        if isfinite(ind_fold(k,i))
-            plot(ax,Is{i,2}(ind_fold(k,i)),cshift(i,vr{i}(ind_fold(k,i),ip.V)),sfold,...
-                'MarkerFaceColor',cfold,'MarkerSize',5,'MarkerEdgeColor','k');
-        end
+    rv=vcruns(i);
+    ibifs=sort([1;rv.i_fold;rv.i_hopf;length(rv.t)],'ascend');
+    %isneg=idiff(i)>0;
+    %iunst=unst(1,i):unst(2,i);
+    ismall=rv.I<xbd(1);
+    rv.I(ismall)=NaN;
+    [rv.V,rv.Vs]=deal(cshift(i,rv.V),cshift(i,rv.Vs));
+        % raw data of VC run
+    pvcraw=plot(ax,rv.I,rv.V,'LineWidth',1,'color',bg,...
+        'LineWidth',1,'DisplayName','VC raw');
+    % stable parts of VC runs: above depolarization and below first bif
+    rg=1:min([rv.i_hopf;rv.i_fold]);
+    pstable=plot(ax,rv.Is(rg),rv.Vs(rg),'Color',stab_cl{stab_ind.stable},...
+        'LineWidth',stab_lw{stab_ind.stable},'DisplayName',stab_struct.stable);
+    rg=max([vcruns(i).i_hopf;vcruns(i).i_fold]):length(rv.Is);
+    plot(ax,rv.Is(rg),rv.Vs(rg),'Color',stab_cl{stab_ind.stable},...
+        'LineWidth',stab_lw{stab_ind.stable},'DisplayName',stab_struct.stable);
+    % parts of VC run with undetermined stability
+    pund=[];
+    for k=2:2:length(rv.i_fold)
+        rg=adjacent_bif(ibifs,rv.i_fold(k),+1);
+        pund=plot(ax,rv.Is(rg),rv.Vs(rg),'Color',stab_cl{stab_ind.undet},...
+            'LineWidth',stab_lw{stab_ind.undet},'DisplayName',stab_struct.undet);
     end
+    % parts of VC run next to Hopf bifurcation
+    rg=adjacent_bif(ibifs,rv.i_hopf(1),+1);
+    punst=plot(ax,rv.Is(rg),rv.Vs(rg),'Color',stab_cl{stab_ind.ubyhopf},...
+        'LineWidth',stab_lw{stab_ind.ubyhopf},'DisplayName',stab_struct.ubyhopf);
+    rg=adjacent_bif(ibifs,rv.i_hopf(2),-1);
+    plot(ax,rv.Is(rg),rv.Vs(rg),'Color',stab_cl{stab_ind.ubyhopf},...
+        'LineWidth',stab_lw{stab_ind.ubyhopf},'DisplayName',stab_struct.ubyhopf);
+    % parts of VC that are unstable for topolgical reasons
+    pneg=[];
+    for k=1:2:length(rv.i_fold)
+        rg=rv.i_fold(k):rv.i_fold(k+1);
+        pneg=plot(ax,rv.Is(rg),rv.Vs(rg),'Color',stab_cl{stab_ind.ubyfold},...
+            'LineWidth',stab_lw{stab_ind.ubyfold},'DisplayName',stab_struct.ubyfold);
+    end
+    % fold bifurcations
+    pfold=plot(ax,rv.Is(rv.i_fold),rv.Vs(rv.i_fold),sfold,...
+        'Color','k','MarkerFaceColor',cfold,ms{:},...
+            'LineWidth',1,'DisplayName','Fold');
+    % Hopf bifurcations
+    i_hopf=rv.i_hopf;
+    [~,i_left]=adjacent_bif(ibifs,i_hopf(1),-1);
+    if ismember(i_left,rv.i_fold)
+        i_hopf=i_hopf(2:end);
+    end
+    phopf=plot(ax,rv.Is(i_hopf),rv.Vs(i_hopf),shopf,...
+        'Color','k','MarkerFaceColor',chopf,ms{:},...
+            'LineWidth',1,'DisplayName','Hopf');
+    % 
+    % plot(ax,rv.I,cshift(i,rv.I),'-','color',bg,'linewidth',1.5);    
+    % plot(ax,rv.Is(~isneg),cshift(i,rv.Vs(~isneg)),'.','color',cm,'MarkerSize',6);
+    % plot(ax,rv.Is(iunst),cshift(i,rv.V(iunst)),'.','color',cunst,'MarkerSize',7);
+    % plot(ax,rv.Is(isneg),cshift(i,rv.V(isneg)),'.','color',cneg,'MarkerSize',8);
+    % iri=find(rv.I>=labelx,1,'first');
+    % labely=cshift(i,rv.V(iri));
+    % text(ax,labelx,labely,sprintf('%d',i),'VerticalAlignment','top',...
+    %     'FontName','Courier','FontWeight','bold','FontSize',12);
+    % for k=1:2
+    %     if isfinite(ind_hopf(k,i))
+    %         plot(ax,Is{i,1}(ind_hopf(k,i)),cshift(i,vr{i}(ind_hopf(k,i),ip.V)),shopf,...
+    %             'MarkerFaceColor',chopf,'MarkerSize',5,'MarkerEdgeColor','k');
+    %     end
+    %     if isfinite(ind_fold(k,i))
+    %         plot(ax,Is{i,2}(ind_fold(k,i)),cshift(i,vr{i}(ind_fold(k,i),ip.V)),sfold,...
+    %             'MarkerFaceColor',cfold,'MarkerSize',5,'MarkerEdgeColor','k');
+    %     end
+    % end
 end
-vn=plot(ax,NaN,NaN,'o','MarkerEdgeColor',cneg,'MarkerFaceColor',cneg,'MarkerSize',6);
-vu=plot(ax,NaN,NaN,'o','MarkerEdgeColor',cunst,'MarkerFaceColor',cunst,'MarkerSize',6);
-vp=plot(ax,NaN,NaN,'o','MarkerEdgeColor',cm,'MarkerFaceColor',cm,'MarkerSize',6);
-vf=plot(ax,NaN,NaN,'-','Color',bg,'MarkerFaceColor',bg,'LineWidth',2);
-vh=plot(ax,NaN,NaN,shopf,'Color','k','MarkerFaceColor',chopf,'LineWidth',1);
-vsn=plot(ax,NaN,NaN,sfold,'Color','k','MarkerFaceColor',cfold,'LineWidth',1);
-ve=plot(ax,NaN,NaN,'o','Color','w','MarkerFaceColor','w','LineWidth',1);
+%%
 hold(ax,'off');
 grid(ax,'on');
 xlim(ax,xbd);
@@ -146,5 +152,11 @@ text(xbd(1)+diff(xbd)*0.01,ybd(2)-diff(ybd)*0.01,'(c)',...
     'VerticalAlignment','top','HorizontalAlignment','left',ltx{:},'Fontsize',18);
 %%
 fig.Position(3:4)=[400,600]; % fix size of figure for repeatable plotting
-folder=[pwd(),'/../../../PLoS-amakhin/PLoS revision/'];
+folder=[pwd(),'/../../figures/'];
 exportgraphics(fig,[folder,'Figure1c.pdf'],'ContentType','vector');
+%%
+function [rg,i_adj]=adjacent_bif(ibifs,ibifcur,pm)
+icur=find(ibifs==ibifcur);
+i_adj=ibifs(icur+pm*1);
+rg=ibifcur:pm:i_adj;
+end

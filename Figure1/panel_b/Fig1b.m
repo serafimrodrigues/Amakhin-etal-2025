@@ -3,80 +3,53 @@
 %  m-file to reproduce Fig.1(b)
 %--------------------------------------------------------------------
 
-
-%% First unzip the data file
-%%% Then load CC for cell #5
+%%% Load CC run and VC run for cell #5
 clear 
-c5=load('cell5.txt');
-c5=c5(1:1200000,:);
-s1=load('../../mat_files/vcruns.mat','vcruns','ip','xnames');
-s2=load('../../mat_files/ccruns.mat','ccruns');
-%%
-ccruns=s2.ccruns;
-[vcar,ip,xnames]=deal(s1.vcruns(4).data,s1.ip,s1.xnames);
-bd.I=[-Inf,450];
-bd.t=[0,50];
-bd.V=[-Inf,Inf];
-geti=@(x,i)x(i);
-checkbd=@(x,s)x(:,ip.(s))>geti(bd.(s),1)&x(:,ip.(s))<geti(bd.(s),2);
-vcar=vcar(checkbd(vcar,'I')&checkbd(vcar,'t'),:);
-ccrun=struct('I',c5(:,3),'V',c5(:,2),'t',c5(:,1));
-vcrun=struct('I',vcar(:,ip.I),'V',vcar(:,ip.V),'t',vcar(:,ip.t));
-[wsize,maxrep,degree]=deal(60000,500,10);
-[vcrun.Is,num]=smooth_I_sg(vcrun.I,wsize,maxrep,degree);
-wsize=1500;
-thresholds=struct('spike',25,'isi',100e-3,'si',0.5);
-[i_cc_hopf,i_vc_hopf,i_vc_unst,ccrun.Vs]=match_spikes(ccrun,vcrun,wsize*mean(diff(vcrun.t)),thresholds);
-wsize=1500;
-ccrun.Is=smoothdata(ccrun.I,'movmean',wsize);
-[weqsize,eqthresh]=deal(0.01,0.05);
-cceq=match_cc_stst(ccrun,weqsize,eqthresh);
-%% % Plot CC after smoothing
-fig=figure(1);clf;
-pcc=plot(ccrun.Is,ccrun.V,'color',[1 0.6 0.4],'DisplayName','$V(I_\mathrm{h})$');
-hold on;
-%cc_spike_rg=i_cc_hopf(1):i_cc_hopf(2);
-%plot(ccrun.Is(cc_spike_rg),ccrun.Vs(cc_spike_rg),'color',[1 0.4 0.2]);
-plot(cceq.Is,cceq.V,'color',[1 0.5 0.3],'LineWidth',1.5);
-%% order cells
-ind_hopf=i_vc_hopf;
-ind_fold=find(diff(sign(diff(vcrun.Is))));
-stab_rg=[1;sort([ind_fold;ind_hopf]);length(vcrun.t)];
-stab_rg=[stab_rg(1:end-1),stab_rg(2:end)];
-%% %
-txt={'Fontsize',16};
-ltx=[{'Interpreter','LaTeX'},txt];
+s=load('../../mat_files/processed_runs.mat');
+[ccrun,vcrun]=deal(s.ccruns(5),s.vcruns(5));
 clr=lines();
 cm=clr(1,:);
-cunst=[1,0.2,0.2];
-cund=[1,0.9,0];
-cneg=cunst/2;
-chopf=[1,1,1];
-shopf='ks';
-cfold=[0,1,0];
-sfold='ks';
-c_cc=[1 0.6 0.4];%in.cc.color;
-bg=cm*1/3+2/3;
+[  cunst,      cund,       cc,          ccslow,    chopf,   cfold]=deal(...
+[1,0.2,0.2], [1,0.9,0], [1,0.6,0.4], [1 0.5 0.3], [1,1,1], [0,1,0]);
+[cneg,bg]=deal(cunst/2,cm*1/3+2/3);
+[shopf,sfold]=deal('ks');
+xbd=[min(vcrun.Is),430];%min(vcrun.Is)-30,max(vcrun.Is)+30];
+ybd=[min(vcrun.V),max(ccrun.V)];
+relcoord=@(bd,frac)bd(1)+frac*diff(bd);
+[labelx,labely]=deal(relcoord(xbd,0.02),relcoord(ybd,0.98));
 stab_names={...
     'stable','VC stable';...
     'ubyfold','$$\frac{\normalsize\mathrm{d}I_\mathrm{vc}}{\normalsize\mathrm{d}V_\mathrm{h}}<0$$';...
     'undet','VC stab. undet.';...
-    'ubyhopf', 'VC\,unst.\,by Hopf'}';
+    'ubyhopf', sprintf('VC unst. by Hopf')}';
+txt={'FontSize',16,'FontName','Courier','FontWeight','bold'};
+ltx=[txt,{'Interpreter','latex'}];
+ms={'MarkerSize',8};
+stab_flags={'stable','ubyfold','undet','ubyhopf','stable'};
 stab_struct=struct(stab_names{:});
-stab_flags={'stable','ubyfold','ubyhopf','ubyhopf','stable'};
-stab_cl={      cm,      cneg,   cunst,    cunst,   cm};
-stab_lw={      2,        2,      2,       2,      2};
+stab_ic=[stab_names(1,:);num2cell(1:size(stab_names,2))];
+stab_ind=struct(stab_ic{:});
+stab_cl([stab_ind.stable,stab_ind.ubyhopf,stab_ind.ubyfold,stab_ind.undet])=...
+        {          cm,             cunst,          cneg,            cund};
+stab_lw([stab_ind.stable,stab_ind.ubyhopf,stab_ind.ubyfold,stab_ind.undet])=...
+        {          2,              2,               2,              2};
+%% % Plot CC after smoothing
+fig=figure(1);clf;
+pcc=plot(ccrun.Is,ccrun.V,'color',cc,'DisplayName','$V(I_\mathrm{h})$');
+hold on;
+plot(ccrun.Ieq,ccrun.Veq,'color',ccslow,'LineWidth',1.5);
 pvcraw=plot(vcrun.I,vcrun.V,'-','color',bg,'linewidth',1.5,'DisplayName','VC\,unfiltered');
+i_bifs=sort([1;vcrun.i_fold;vcrun.i_hopf;length(vcrun.t)],'ascend');
 for i=1:length(stab_flags)
-    rg=stab_rg(i,1):stab_rg(i,2);
-    pvcstab(i)=plot(vcrun.Is(rg),vcrun.V(rg),'-','color',stab_cl{i},'linewidth',stab_lw{i},'DisplayName',stab_struct.(stab_flags{i}));
+    rg=i_bifs(i):i_bifs(i+1);
+    ind=stab_ind.(stab_flags{i});
+    pvcstab(i)=plot(vcrun.Is(rg),vcrun.V(rg),'-','color',stab_cl{ind},...
+        'linewidth',stab_lw{ind},'DisplayName',stab_struct.(stab_flags{i}));
 end
-ph=plot(vcrun.Is(ind_hopf(2)),vcrun.V(ind_hopf(2)),shopf,'MarkerFaceColor',chopf,'MarkerSize',8,'DisplayName','Hopf');
-pf=plot(vcrun.Is(ind_fold),vcrun.V(ind_fold),sfold,'MarkerFaceColor',cfold,'MarkerSize',8,'DisplayName','Fold');
+ph=plot(vcrun.Is(vcrun.i_hopf(2)),vcrun.V(vcrun.i_hopf(2)),shopf,'MarkerFaceColor',chopf,ms{:},'DisplayName','Hopf');
+pf=plot(vcrun.Is(vcrun.i_fold),vcrun.V(vcrun.i_fold),sfold,'MarkerFaceColor',cfold,ms{:},'DisplayName','Fold');
 pe=plot(NaN,NaN,'w.','DisplayName',' ');
 %%
-xbd=[min(vcrun.Is),430];%min(vcrun.Is)-30,max(vcrun.Is)+30];
-ybd=[min(vcrun.V),max(ccrun.V)];
 %%% LAY-OUT
 set(gcf,'color','white');
 set(gca,'FontName','Courier','FontWeight','bold',txt{:});
@@ -87,13 +60,13 @@ ylabel('$V_\mathrm{h}\approx V,\;V_\mathrm{cc}$ (mV)',ltx{:});
 xlabel('$I_\mathrm{vc},\;I_\mathrm{h}$\,(pA)',ltx{:});
 text(xbd(1)+5,ybd(2)-2,'(b)',...
     'VerticalAlignment','top','HorizontalAlignment','left',ltx{:},'Fontsize',18);
-lg=legend([pcc,pvcraw,pvcstab(1:3),pe,ph,pf],...
+lg=legend([pcc,pvcraw,pvcstab(1:4),pe,ph,pf],...
     'NumColumns',3,'Interpreter','latex','Location','southeast','FontSize',16);
 %%% LAY-OUT for panel (a2) of Figure 5
 % axis([190 210 -40 40]);
 % set(gca,'XTick',190:10:210);
 %%
 fig.Position(3:4)=[650,400]; % fix size of figure for repeatable plotting
-folder=[pwd(),'/../../../PLoS-amakhin/PLoS revision/'];
+folder=[pwd(),'/../../figures/'];
 exportgraphics(fig,[folder,'Figure1b.pdf'],'ContentType','vector');
 

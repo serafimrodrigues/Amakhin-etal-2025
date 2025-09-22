@@ -5,7 +5,7 @@
 
 %%% First unzip the data file
 %%% Then load CC for cell #1
-% c1=load('cell1.txt');
+c1=load('cell1.txt');
 
 %%% Plot CC after smoothing
 wsize=(1500);
