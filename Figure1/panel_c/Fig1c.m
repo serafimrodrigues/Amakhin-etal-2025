@@ -29,7 +29,7 @@ txt={'FontSize',16,'FontName','Courier','FontWeight','bold'};
 ltx=[txt,{'Interpreter','latex'}];
 ms={'MarkerSize',8};
 %% Plot
-fig=figure(2);clf;set(gcf,'color','white');ax=gca;
+fig=figure(2);fig.Name='Figure 1c';clf;set(gcf,'color','white');ax=gca;
 hold(ax,'on');
 xbd=[min(cat(1,vcruns.Is))-30,max(cat(1,vcruns.Is))+30];
 zbd=[min(cat(1,vcruns.Vs))-5,max(cat(1,vcruns.Vs))+3];

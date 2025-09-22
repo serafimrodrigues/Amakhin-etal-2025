@@ -3,15 +3,15 @@
 %  m-file to prepare structures for Fig.2
 %--------------------------------------------------------------------
 clear
-doplot=true;
+[doplot,docheck]=deal(true,false);
 addpath([pwd(),'/../m_files/']);
 ic=struct('in',1,'t2',2);
 matfiles=[pwd(),'/../mat_files/'];
-vcs(ic.t2)=load([matfiles,'vcruntype2.mat']);
-ccs(ic.t2)=load([matfiles,'ccruntype2.mat']);
-vcs(ic.t2)=load([matfiles,'vcruntype2.mat']);
-ccs(ic.t2)=load([matfiles,'ccruntype2.mat']);
-[vcs(ic.t2).t,ccs(ic.t2).t]=deal(vcs(ic.t2).t/1000,ccs(ic.t2).t/1000);
+if docheck
+    vcs(ic.t2)=load([matfiles,'vcruntype2.mat']);
+    ccs(ic.t2)=load([matfiles,'ccruntype2.mat']);
+    [vcs(ic.t2).t,ccs(ic.t2).t]=deal(vcs(ic.t2).t/1000,ccs(ic.t2).t/1000);
+end
 vars_in=load([matfiles,'fig2a_231215_IN_raw.mat']);
 ccrun(ic.in)=vars_in.runs.cc;
 vcrun(ic.in)=vars_in.runs.vc;

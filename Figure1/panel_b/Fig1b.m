@@ -13,15 +13,15 @@ cm=clr(1,:);
 [1,0.2,0.2], [1,0.9,0], [1,0.6,0.4], [1 0.5 0.3], [1,1,1], [0,1,0]);
 [cneg,bg]=deal(cunst/2,cm*1/3+2/3);
 [shopf,sfold]=deal('ks');
-xbd=[min(vcrun.Is),430];%min(vcrun.Is)-30,max(vcrun.Is)+30];
-ybd=[min(vcrun.V),max(ccrun.V)];
+xbd=[-25,430];%min(vcrun.Is)-30,max(vcrun.Is)+30];
+ybd=[-85,42];
 relcoord=@(bd,frac)bd(1)+frac*diff(bd);
 [labelx,labely]=deal(relcoord(xbd,0.02),relcoord(ybd,0.98));
 stab_names={...
     'stable','VC stable';...
     'ubyfold','$$\frac{\normalsize\mathrm{d}I_\mathrm{vc}}{\normalsize\mathrm{d}V_\mathrm{h}}<0$$';...
-    'undet','VC stab. undet.';...
-    'ubyhopf', sprintf('VC unst. by Hopf')}';
+    'undet','VC undet.';...
+    'ubyhopf', sprintf('VC unst.\n by Hopf')}';
 txt={'FontSize',16,'FontName','Courier','FontWeight','bold'};
 ltx=[txt,{'Interpreter','latex'}];
 ms={'MarkerSize',8};
@@ -34,10 +34,10 @@ stab_cl([stab_ind.stable,stab_ind.ubyhopf,stab_ind.ubyfold,stab_ind.undet])=...
 stab_lw([stab_ind.stable,stab_ind.ubyhopf,stab_ind.ubyfold,stab_ind.undet])=...
         {          2,              2,               2,              2};
 %% % Plot CC after smoothing
-fig=figure(1);clf;
+fig=figure(1);fig.Name='Figure 1b';clf;
 pcc=plot(ccrun.Is,ccrun.V,'color',cc,'DisplayName','$V(I_\mathrm{h})$');
 hold on;
-plot(ccrun.Ieq,ccrun.Veq,'color',ccslow,'LineWidth',1.5);
+pccslow=plot(ccrun.Ieq,ccrun.Veq,'color',ccslow,'LineWidth',1.5,'DisplayName','$V(I_\mathrm{h})$ (slow)');
 pvcraw=plot(vcrun.I,vcrun.V,'-','color',bg,'linewidth',1.5,'DisplayName','VC\,unfiltered');
 i_bifs=sort([1;vcrun.i_fold;vcrun.i_hopf;length(vcrun.t)],'ascend');
 for i=1:length(stab_flags)
@@ -60,7 +60,7 @@ ylabel('$V_\mathrm{h}\approx V,\;V_\mathrm{cc}$ (mV)',ltx{:});
 xlabel('$I_\mathrm{vc},\;I_\mathrm{h}$\,(pA)',ltx{:});
 text(xbd(1)+5,ybd(2)-2,'(b)',...
     'VerticalAlignment','top','HorizontalAlignment','left',ltx{:},'Fontsize',18);
-lg=legend([pcc,pvcraw,pvcstab(1:4),pe,ph,pf],...
+lg=legend([pcc,pccslow,pvcraw,pvcstab(1:4),ph,pf],...
     'NumColumns',3,'Interpreter','latex','Location','southeast','FontSize',16);
 %%% LAY-OUT for panel (a2) of Figure 5
 % axis([190 210 -40 40]);
