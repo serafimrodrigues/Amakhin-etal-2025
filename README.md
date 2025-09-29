@@ -15,6 +15,7 @@ Submitted, 2025.
 * Enter `Figure1/panel_b`, execute `Fig1b.m` for figure 1(b). Execute `FigSI9.m` for figure SI9.
 * Enter `Figure1/panel_c`, execute `Fig1b.m` for figure 1(c).
 * Enter `Figure2`, execute `Fig2.m` for figures 2(a,b).
-* Enter `Figure3/panel_a`, execute `Fig3a.m` for figures 3(a).
-* Enter `Figure3/panel_b`, execute `Fig3b.m` for figures 3(b).
-* 
+* Enter `Figure3/panel_a`, execute `Fig3a.m` for figure 3(a).
+* Enter `Figure3/panel_b`, execute `Fig3b.m` for figure 3(b).
+* Enter `Figure4`, execute `Fig4.m` for figure 4.
+* Enter `Figure5`, execute `Fig5.m` for figure 5.
