@@ -213,7 +213,7 @@ end
 ax1p=ax(1,1).Position;
 lg1=legend(ax(1,1),[pl_tr,pl_osc,pl_ini],ltx{:},'FontSize',13,'Location','South','NumColumns',2);
 %%
-folder=[pwd(),'/../../PLoS-amakhin/PLoS revision/'];
+folder=[pwd(),'/../figures/'];
 exportgraphics(fig,[folder,'Figure5.pdf'],'ContentType','vector');
 %%
 function yticklab(k,ax,txt)
