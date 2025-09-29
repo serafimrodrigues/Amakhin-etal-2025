@@ -15,7 +15,7 @@ s=load('../mat_files/vcruns.mat','vcruns','ip','xnames');
 [vcloadruns,ip,xnames]=deal(s.vcruns,s.ip,s.xnames);
 s=load('../mat_files/ccruns.mat','ccruns');
 ccloadruns=s.ccruns;
-runsel=[4,5];% icellorder =[  5     1     3     2     4]; sel=icelloirder([5,1]);
+runsel=[4,5];% icellorder =[  5     1     3     2     4]; sel=icellorder([5,1]);
 ccloadruns=ccloadruns(runsel);
 vcloadruns=vcloadruns(runsel);
 %% process ramped runs
