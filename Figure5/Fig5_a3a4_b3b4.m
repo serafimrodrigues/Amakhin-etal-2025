@@ -11,43 +11,36 @@ c51=importdata('cells_5-1_step_depol.xlsx');
 %c5slow=load('../Figure1/panel_b/cell5.txt');
 %c1slow=load('../FigureSI1/panel_a/cell1.txt');
 %% ramped runs
-s=load('../mat_files/vcruns.mat','vcruns','ip','xnames');
-[vcloadruns,ip,xnames]=deal(s.vcruns,s.ip,s.xnames);
-s=load('../mat_files/ccruns.mat','ccruns');
-ccloadruns=s.ccruns;
-runsel=[4,5];% icellorder =[  5     1     3     2     4]; sel=icellorder([5,1]);
-ccloadruns=ccloadruns(runsel);
-vcloadruns=vcloadruns(runsel);
-%% process ramped runs
-% smoothing, curring off
-bd.I=[-Inf,450];
-bd.t=[0,60];
-bd.V=[-Inf,Inf];
-geti=@(x,i)x(i);
-checkbd=@(x,s)x(:,ip.(s))>geti(bd.(s),1)&x(:,ip.(s))<geti(bd.(s),2);
-xchecktI=@(x)x(checkbd(x,'I')&checkbd(x,'t'),:);
-nruns=length(vcloadruns);
-%%% filter VC runs with various window lengths
-wsize_vc=[5000,15000,16000];
-isnames={'I0';1};
-for k=1:length(wsize_vc)
-    for i=nruns:-1:1
-        tmp=vcloadruns(i).data;
-        vr{i}=xchecktI(tmp);
-        Ivc{i,k}=smoothdata(vr{i}(:,ip.I),'movmedian',wsize_vc(k));
-    end
-    isnames=[isnames,{['I',num2str(k)];k+1}];
-end
-wsize_cc=1500;
-cslow=arrayfun(@(r){xchecktI(r.data)},ccloadruns);
-[vcruns,ccruns]=deal(cell(nruns,1));
-for i=length(cslow):-1:1
-    Icc{i}=smoothdata(cslow{i}(:,ip.I),'movmean',wsize_cc);
-    ccruns{i}=[Icc{i},cslow{i}(:,ip.V)];
-    vcruns{i}=[vr{i}(:,ip.I),Ivc{i,:},vr{i}(:,ip.V)];
-end
-ircc=struct('I',1,'V',2);
-irvc=struct(isnames{:},'V',size(isnames,2)+1);
+s=load('../mat_files/processed_runs.mat');
+[ccruns,vcruns]=deal(s.ccruns,s.vcruns);
+runsel=[5,1];% icellorder =[  5     1     3     2     4]; sel=icellorder([5,1]);
+nruns=length(runsel);
+ccruns=ccruns(runsel);
+vcruns=vcruns(runsel);
+clr=lines();
+cm=clr(1,:);
+[  cunst,      cund,       cc,          ccslow,    chopf,   cfold]=deal(...
+[1,0.2,0.2], [1,0.9,0], [1,0.6,0.4], [1 0.5 0.3], [1,1,1], [0,1,0]);
+[cneg,bg]=deal(cunst/2,cm*1/3+2/3);
+[shopf,sfold]=deal('s');
+[xbd,ybd]=deal([-20,420],[-80,50]);
+relcoord=@(bd,frac)bd(1)+frac*diff(bd);
+[labelx,labely]=deal(relcoord(xbd,0.02),relcoord(ybd,0.98));
+stab_names={...
+    'stable','VC stable';...
+    'ubyfold','$$\frac{\normalsize\mathrm{d}I_\mathrm{vc}}{\normalsize\mathrm{d}V_\mathrm{h}}<0$$';...
+    'undet','VC stability undetermined';...
+    'ubyhopf', sprintf('VC unstable by Hopf')}';
+stab_struct=struct(stab_names{:});
+stab_ic=[stab_names(1,:);num2cell(1:size(stab_names,2))];
+stab_ind=struct(stab_ic{:});
+stab_cl([stab_ind.stable,stab_ind.ubyhopf,stab_ind.ubyfold,stab_ind.undet])=...
+        {          cm,             cunst,          cneg,            cund};
+stab_lw([stab_ind.stable,stab_ind.ubyhopf,stab_ind.ubyfold,stab_ind.undet])=...
+        {          2,              2,               2,              2};
+txt={'FontSize',16,'FontName','Courier','FontWeight','bold'};
+ltx=[txt,{'Interpreter','latex'}];
+ms={'MarkerSize',8};
 %% extract the stimulation part
 c1=c51(:,3:4);
 c5=c51(:,1:2);
@@ -68,14 +61,6 @@ for k=nruns:-1:1
     ind2{k}=ceil(length(chigh{k})/3):length(chigh{k});
     ind1{k}=1:ceil(length(chigh{k})/3);
 end
-%rx1=setdiff(1:size(c1,1),rg1);
-%s1=c1(rg1,:);
-% form the approx derivative V'
-%s1d=zeros(length(s1)-1,1);
-%for i=1:length(s5d)
-%    s1d(i,1)=(s1(i+1,2)-s1(i,2))/(s1(i+1,1)-s1(i,1));
-%end
-%vrg1=[min(s1(ceil(end/2):end,2)),max(s1(ceil(end/2):end,2))];
 %% % Plot CC after smoothing
 %%
 fig=figure(1);clf;
@@ -99,7 +84,7 @@ osc_cl={'Color',0*[1,1,1],'linewidth',1};
 ttick=1000*(0:2);
 [vccdtick,vccd_bd]=deal(-80:70:60,[-80,70]);
 [vccxtick,vccytick]=deal(50*(-1:1),100*[-1,0,1,3]);
-[xbifbd,ybifbd,xbiftick,ybiftick,ybifzoomtick]=deal([-20,450],[-80,40],200*(0:2),40*(-2:1),40*(-1:1));
+[xbifbd,ybifbd,xbiftick,ybiftick,ybifzoomtick]=deal([-20,420],[-80,40],200*(0:2),40*(-2:1),40*(-1:1));
 [zoomc,zoomwh]=deal(200,5);
 %zbd=[min(cat(1,Vall{:}))-5,max(cat(1,Vall{:}))+3];
 bddeco={':','color',(clr(2,:)+1)/2,'linewidth',2};
@@ -121,17 +106,16 @@ zshift=@(obj,val)set(obj,'ZData',val+0*obj.XData);
 %--------
 for k=1:nruns
     %%% panel (a/b1): plot the time series
-    ax(1,k)=nexttile(k);
+    ax(1,k)=nexttile(k);hold(ax(1,k),'on');
     pl_tr=plot(ax(1,k),chigh{k}(ind1{k},ist.t),chigh{k}(ind1{k},ist.V),tr_cl{:},...
         'DisplayName','$0.1$--$0.6$\,s');
-    hold(ax(1,k),'on');
     pl_osc=plot(ax(1,k),chigh{k}(ind2{k},ist.t),chigh{k}(ind2{k},ist.V),osc_cl{:},...
         'DisplayName','$0.6$--$1.6$\,s');
     pl_ini=plot(ax(1,k),cstep_all{k}(rx{k,1},ist.t),cstep_all{k}(rx{k,1},ist.V),...
         ini_cl{:},'DisplayName','$I_\mathrm{h}$ off');
     plot(ax(1,k),cstep_all{k}(rx{k,2},ist.t),cstep_all{k}(rx{k,2},ist.V),ini_cl{:});
     set(ax(1,k),'XTick',ttick,'YTick',vccdtick,txt{:},...
-        'xlim',ttick([1,end]),'ylim',vccd_bd);
+        'xlim',ttick([1,end]),'ylim',vccd_bd,'box','on');
     xlabel(ax(1,k),'$t$ (ms)',ltx{:});%,'Position',[1.5e3,pa(vccdtick,-0.02),0],...
     %'HorizontalAlignment','center','VerticalAlignment','top');
     yticklab(k,ax(1,:),'$V_{\mathrm{cc}}$ (mV)');
@@ -151,18 +135,26 @@ for k=1:nruns
     text(ax(2,k),txtposvvp(1),txtposvvp(2),cell_nr{k},'VerticalAlignment','top','HorizontalAlignment','right',ltx{:});
     hold(ax(2,k),'on');
     %%% repeat bifurcation diagram (VC and CC protocols)
-    ax(3,k)=nexttile(2*ncols+k);
-    pcc=plot(ax(3,k),ccruns{k}(:,ircc.I),ccruns{k}(:,ircc.V),ccrcol{:},'DisplayName','CC');
-    hold(ax(3,k),'on');
+    ax(3,k)=nexttile(2*ncols+k);hold(ax(3,k),'on');
+        [rv,rc]=deal(vcruns(k),ccruns(k));
+    % plot CC run
+    pcc=plot(ax(3,k),rc.Is,rc.V,'color',cc,'DisplayName','CC');
+    % highlight slow parts of CC signal
+    pccslow=plot(ax(3,k),rc.Is,rc.Veq,'LineWidth',1.5,'color',ccslow,'DisplayName','$V_\mathrm{cc}(I_\mathrm{h})$ (slow)');
+    % raw data of VC run
+    pvc0=plot(ax(3,k),rv.I,rv.V,'LineWidth',1,'color',bg,'LineWidth',1,'DisplayName','VC raw');
+    % stable parts of VC runs: above depolarization and below first bif
+    pvc1=plot(ax(3,k),rv.Is,rv.Vs,'Color',stab_cl{stab_ind.stable},...
+        'LineWidth',stab_lw{stab_ind.stable},'DisplayName','VC smoothed');
     xline(ax(3,k),zoomc+zoomwh*[-1,1],'k-');
-    pvc0=plot(ax(3,k),vcruns{k}(:,irvc.I0),vcruns{k}(:,irvc.V),'Color',bg,'DisplayName','VC (unfiltered)');
-    pvc1=plot(ax(3,k),vcruns{k}(:,irvc.I1),vcruns{k}(:,irvc.V),'Color',bg/2,'linewidth',2,'DisplayName','VC (smoothed)');
+    %pvc0=plot(ax(3,k),vcruns{k}(:,irvc.I0),vcruns{k}(:,irvc.V),'Color',bg,'DisplayName','VC (unfiltered)');
+    %pvc1=plot(ax(3,k),vcruns{k}(:,irvc.I1),vcruns{k}(:,irvc.V),'Color',bg/2,'linewidth',2,'DisplayName','VC (smoothed)');
     plot(ax(3,k),zoomc*[1,1],osc_rg{k},'k+:','LineWidth',1)
     text(ax(3,k),labposbif(1),labposbif(2),['(',plabels(3,k),')'],'VerticalAlignment','top',ltx{:});
     tcell=text(ax(3,k),txtposbif(1),txtposbif(2),cell_nr{k},'VerticalAlignment','top','HorizontalAlignment','right',ltx{:});
     xlabel(ax(3,k),'$I_{\mathrm{vc}}$, $I_\mathrm{h}$ (pA)','interpreter','latex');
     yticklab(k,ax(3,:),'$V_\mathrm{h}\approx V$, $V_\mathrm{cc}$ (mV)');
-    set(ax(3,k),'XLim',xbifbd,'YLim',ybifbd,'XTick',xbiftick(1:end-1),'YTick',ybiftick,txt{:});
+    set(ax(3,k),'XLim',xbifbd,'YLim',ybifbd,'XTick',xbiftick(1:end-1),'YTick',ybiftick,txt{:},'box','on');
     if k==1
         ax3p=ax(3,1).Position;
         lg3=legend(ax(3,1),[pcc,pvc0,pvc1],'FontSize',10);
@@ -205,15 +197,17 @@ for k=nruns:-1:1
     ax3p=ax(3,k).Position;
     ax(4,k)=axes('Parent',figure(1),'Box','on',...
         'Position',[ax3p(1)+ax3p(3)*0.59,ax3p(2)-ax3p(4)*0.04,ax3p(3)*0.42,ax3p(4)*0.4]);
-    selcc=ccruns{k}(:,ircc.I)>zoomc-zoomwh&ccruns{k}(:,ircc.I)<zoomc+zoomwh;
-    plot(ax(4,k),ccruns{k}(selcc,ircc.I),ccruns{k}(selcc,ircc.V),ccrcol{:},'linewidth',1.5);
+    Is2=smoothdata(ccruns(k).I,'gaussian',0.2,'SamplePoints',ccruns(k).t);
+    selcc=Is2>zoomc-zoomwh&Is2<zoomc+zoomwh;
+    plot(ax(4,k),Is2(selcc),ccruns(k).V(selcc),'color',cc,'linewidth',1.5);
     hold(ax(4,k),'on');
-    selvc0=vcruns{k}(:,irvc.I0)>zoomc-zoomwh&vcruns{k}(:,irvc.I0)<zoomc+zoomwh;
-    selvc1=vcruns{k}(:,irvc.I1)>zoomc-zoomwh&vcruns{k}(:,irvc.I1)<zoomc+zoomwh;
-    plot(ax(4,k),vcruns{k}(selvc0,irvc.I0),vcruns{k}(selvc0,irvc.V),'Color',bg,'Linewidth',1.5);
-    plot(ax(4,k),vcruns{k}(selvc1,irvc.I1),vcruns{k}(selvc1,irvc.V),'Color',bg/2,'Linewidth',2);
+    %selvc0=vcruns(k).Is>zoomc-zoomwh&vcruns(k).Is<zoomc+zoomwh;
+    selvc1=vcruns(k).Is>zoomc-zoomwh&vcruns(k).Is<zoomc+zoomwh;
+    plot(ax(4,k),vcruns(k).Is(selvc1),vcruns(k).V(selvc1),'Color',bg,'Linewidth',1.5);
+    plot(ax(4,k),vcruns(k).Is(selvc1),vcruns(k).Vs(selvc1),'Color',bg/2,'Linewidth',2);
     set(ax(4,k),'XTick',zoomc+zoomwh*(-1:1),'YTick',40*(-1:1),txt{:},...
-        'ylim',ybifzoomtick([1,end]),'linewidth',1,'FontSize',10,'XColor',cm,'YColor',cm)
+        'ylim',ybifzoomtick([1,end]),'linewidth',1,'FontSize',10,'XColor',cm,'YColor',cm,'linewidth',1)
+    xlim(ax(4,k),[195,205]);
 end
 %% add legends
 ax1p=ax(1,1).Position;
